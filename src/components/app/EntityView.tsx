@@ -24,6 +24,7 @@ interface Props {
   onBack: () => void;
 }
 
+
 type AnyEntity = ContentType | Vocabulary | ParagraphType;
 
 export default function EntityView({ project, entityType, entityId, onChange, onBack }: Props) {
