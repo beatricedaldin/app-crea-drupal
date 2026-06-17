@@ -86,6 +86,7 @@ export interface MediaType {
   id: string;
   label: string;
   machineName: string;
+  description?: string;
   sourceType: MediaSourceType;
   fields: Field[];
 }
