@@ -36,7 +36,6 @@ export default function ProjectsView({ projects, onChange, onOpen }: Props) {
       contentTypes: [],
       vocabularies: [],
       paragraphTypes: [],
-      mediaTypes: [],
       createdAt: now,
       updatedAt: now,
     };
@@ -91,7 +90,6 @@ export default function ProjectsView({ projects, onChange, onOpen }: Props) {
                     <Badge variant="secondary">{p.contentTypes.length} Content Types</Badge>
                     <Badge variant="secondary">{p.vocabularies.length} Vocabularies</Badge>
                     <Badge variant="secondary">{p.paragraphTypes.length} Paragraphs</Badge>
-                    <Badge variant="secondary">{p.mediaTypes.length} Media</Badge>
                   </div>
                 </CardContent>
                 <CardFooter className="flex justify-between pt-3 border-t">

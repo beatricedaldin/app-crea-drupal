@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Field, FieldTypeKey, EntityReferenceTarget, ListOption } from '@/lib/types';
+import { Field, FieldTypeKey, EntityReferenceTarget, ListOption, ParagraphType, ContentType, Vocabulary } from '@/lib/types';
 import { FIELD_TYPES, FIELD_CATEGORIES, CATEGORY_COLORS, getFieldTypeInfo } from '@/lib/drupal-fields';
 import { toFieldMachineName } from '@/lib/utils-drupal';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -19,6 +19,9 @@ import { v4 as uuid } from 'uuid';
 interface Props {
   open: boolean;
   field?: Field;
+  paragraphTypes: ParagraphType[];
+  contentTypes: ContentType[];
+  vocabularies: Vocabulary[];
   onSave: (field: Field) => void;
   onClose: () => void;
 }
@@ -26,13 +29,13 @@ interface Props {
 const defaultField = (): Omit<Field, 'id'> => ({
   label: '',
   machineName: '',
-  type: 'string',
+  type: 'plain_text',
   required: false,
   multiple: false,
   description: '',
 });
 
-export default function FieldDialog({ open, field, onSave, onClose }: Props) {
+export default function FieldDialog({ open, field, paragraphTypes, contentTypes, vocabularies, onSave, onClose }: Props) {
   const [form, setForm] = useState(defaultField());
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [allowedValues, setAllowedValues] = useState<ListOption[]>([]);
@@ -85,15 +88,14 @@ export default function FieldDialog({ open, field, onSave, onClose }: Props) {
       allowedValues: isListType(form.type) ? allowedValues : undefined,
       targetType: isRefType(form.type) ? form.targetType : undefined,
       targetBundles: isRefType(form.type) ? form.targetBundles : undefined,
-      maxLength: form.type === 'string' ? form.maxLength : undefined,
-      allowedExtensions: (form.type === 'file' || form.type === 'image') ? form.allowedExtensions : undefined,
-      maxFileSize: (form.type === 'file' || form.type === 'image') ? form.maxFileSize : undefined,
-      dateOnly: form.type === 'datetime' ? form.dateOnly : undefined,
+      taxonomyVocabulary: form.type === 'taxonomy' ? form.taxonomyVocabulary : undefined,
+      dateOnly: form.type === 'datetime' ? (form.dateOnly ?? true) : undefined,
+      dateFormat: form.type === 'datetime' ? (form.dateFormat || "m-Y-d\\TH:i:s") : undefined,
     };
     onSave(saved);
   };
 
-  const isListType = (t: FieldTypeKey) => t.startsWith('list_') || t === 'boolean';
+  const isListType = (t: FieldTypeKey) => t === 'list' || t === 'radio';
   const isRefType = (t: FieldTypeKey) => t === 'entity_reference' || t === 'entity_reference_revisions';
 
   const typesByCategory = FIELD_CATEGORIES.reduce<Record<string, typeof FIELD_TYPES>>((acc, cat) => {
@@ -142,7 +144,31 @@ export default function FieldDialog({ open, field, onSave, onClose }: Props) {
                 <button
                   key={cat}
                   type="button"
-                  onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+                  onClick={() => {
+                    const newCat = selectedCategory === cat ? null : cat;
+                    setSelectedCategory(newCat);
+                    // Se il tipo corrente non appartiene alla nuova categoria, auto-seleziona il primo tipo
+                    if (newCat && getFieldTypeInfo(form.type)?.category !== newCat) {
+                      const first = typesByCategory[newCat]?.[0];
+                      if (first) {
+                        setForm((f) => ({
+                          label: f.label,
+                          machineName: f.machineName,
+                          description: f.description,
+                          required: f.required,
+                          multiple: f.multiple,
+                          type: first.key,
+                          dateOnly: first.key === 'datetime' ? true : undefined,
+                          dateFormat: first.key === 'datetime' ? "m-Y-d\\TH:i:s" : undefined,
+                          targetType: undefined,
+                          targetBundles: undefined,
+                          taxonomyVocabulary: undefined,
+                          allowedValues: undefined,
+                        }));
+                        setAllowedValues([]);
+                      }
+                    }
+                  }}
                   className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
                     selectedCategory === cat
                       ? CATEGORY_COLORS[cat]
@@ -158,7 +184,23 @@ export default function FieldDialog({ open, field, onSave, onClose }: Props) {
                 <button
                   key={ft.key}
                   type="button"
-                  onClick={() => set('type', ft.key)}
+                  onClick={() => {
+                    setForm((f) => ({
+                      label: f.label,
+                      machineName: f.machineName,
+                      description: f.description,
+                      required: f.required,
+                      multiple: f.multiple,
+                      type: ft.key,
+                      dateOnly: ft.key === 'datetime' ? true : undefined,
+                      dateFormat: ft.key === 'datetime' ? "m-Y-d\\TH:i:s" : undefined,
+                      targetType: undefined,
+                      targetBundles: undefined,
+                      taxonomyVocabulary: undefined,
+                      allowedValues: undefined,
+                    }));
+                    setAllowedValues([]);
+                  }}
                   className={`text-left px-3 py-2 rounded-lg border text-sm transition-colors ${
                     form.type === ft.key
                       ? 'border-primary bg-primary/5 font-medium'
@@ -203,52 +245,58 @@ export default function FieldDialog({ open, field, onSave, onClose }: Props) {
             />
           </div>
 
-          {/* Opzioni condizionali */}
-          {form.type === 'string' && (
+          {/* Opzioni condizionali — key={form.type} garantisce smontaggio completo al cambio tipo */}
+          <div key={form.type}>
+          {form.type === 'taxonomy' && (
             <div className="space-y-1.5">
-              <Label htmlFor="f-maxlen">Lunghezza massima</Label>
-              <Input
-                id="f-maxlen"
-                type="number"
-                value={form.maxLength ?? ''}
-                onChange={(e) => set('maxLength', e.target.value ? Number(e.target.value) : undefined)}
-                placeholder="255"
-                className="w-32"
-              />
-            </div>
-          )}
-
-          {(form.type === 'file' || form.type === 'image') && (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="f-ext">Estensioni consentite</Label>
-                <Input
-                  id="f-ext"
-                  value={form.allowedExtensions ?? ''}
-                  onChange={(e) => set('allowedExtensions', e.target.value)}
-                  placeholder="jpg jpeg png webp"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="f-size">Dimensione massima</Label>
-                <Input
-                  id="f-size"
-                  value={form.maxFileSize ?? ''}
-                  onChange={(e) => set('maxFileSize', e.target.value)}
-                  placeholder="es. 10 MB"
-                />
-              </div>
+              <Label>Vocabulary</Label>
+              {vocabularies.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Nessuna Taxonomy ancora — creane una nella sezione Vocabularies.</p>
+              ) : (
+                <div className="flex flex-col gap-1.5 border rounded-lg p-3">
+                  {vocabularies.map((v) => {
+                    const checked = (form.taxonomyVocabulary ?? '') === v.machineName;
+                    return (
+                      <label key={v.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                        <input
+                          type="radio"
+                          name="taxonomy-vocab"
+                          checked={checked}
+                          onChange={() => set('taxonomyVocabulary', v.machineName)}
+                        />
+                        <span className="font-medium">{v.label}</span>
+                        <span className="font-mono text-xs text-muted-foreground">{v.machineName}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
           {form.type === 'datetime' && (
-            <div className="flex items-center gap-2">
-              <Switch id="f-dateonly" checked={form.dateOnly ?? false} onCheckedChange={(v) => set('dateOnly', v)} />
-              <Label htmlFor="f-dateonly">Solo data (senza ora)</Label>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Switch id="f-dateonly" checked={form.dateOnly ?? true} onCheckedChange={(v) => set('dateOnly', v)} />
+                <Label htmlFor="f-dateonly">Solo data (senza ora)</Label>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="f-dateformat">Formato data (PHP)</Label>
+                <Input
+                  id="f-dateformat"
+                  value={form.dateFormat ?? "m-Y-d\\TH:i:s"}
+                  onChange={(e) => set('dateFormat', e.target.value)}
+                  className="font-mono text-sm"
+                  placeholder="m-Y-d\TH:i:s"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Es: <code>d/m/Y</code> solo data · <code>m-Y-d\TH:i:s</code> data e ora
+                </p>
+              </div>
             </div>
           )}
 
-          {isRefType(form.type) && (
+          {form.type === 'entity_reference' && (
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label htmlFor="f-target">Tipo di entità target</Label>
@@ -256,31 +304,81 @@ export default function FieldDialog({ open, field, onSave, onClose }: Props) {
                   value={form.targetType ?? ''}
                   onValueChange={(v) => set('targetType', v as EntityReferenceTarget)}
                 >
-                  <SelectTrigger id="f-target">
+                  <SelectTrigger id="f-target" className="w-full">
                     <SelectValue placeholder="Seleziona tipo..." />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="content_type">Content Type</SelectItem>
-                    <SelectItem value="taxonomy">Taxonomy</SelectItem>
-                    <SelectItem value="user">Utente</SelectItem>
-                    <SelectItem value="media">Media</SelectItem>
-                    <SelectItem value="paragraph">Paragraph</SelectItem>
+                  <SelectContent className="w-[var(--radix-select-trigger-width)]">
+                    <SelectItem value="node_type">node_type — definizione CT (CT indice)</SelectItem>
+                    <SelectItem value="node">node — nodo (contenuto)</SelectItem>
+                    <SelectItem value="user">user — utente</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="f-bundles">Bundle target (opzionale)</Label>
-                <Input
-                  id="f-bundles"
-                  value={(form.targetBundles ?? []).join(', ')}
-                  onChange={(e) => set('targetBundles', e.target.value ? e.target.value.split(',').map((s) => s.trim()).filter(Boolean) : undefined)}
-                  placeholder="es. articolo, pagina"
-                />
-              </div>
+              {form.targetType === 'node' && (
+                <div className="space-y-1.5">
+                  <Label>Content Types</Label>
+                  {contentTypes.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Nessun Content Type ancora — creane uno nella sezione Content Types.</p>
+                  ) : (
+                    <div className="flex flex-col gap-1.5 border rounded-lg p-3">
+                      {contentTypes.map((ct) => {
+                        const checked = (form.targetBundles ?? []).includes(ct.machineName);
+                        return (
+                          <label key={ct.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => {
+                                const current = form.targetBundles ?? [];
+                                set('targetBundles', e.target.checked
+                                  ? [...current, ct.machineName]
+                                  : current.filter((b) => b !== ct.machineName));
+                              }}
+                            />
+                            <span className="font-medium">{ct.label}</span>
+                            <span className="font-mono text-xs text-muted-foreground">{ct.machineName}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
-          {isListType(form.type) && form.type !== 'boolean' && (
+          {form.type === 'entity_reference_revisions' && (
+            <div className="space-y-1.5">
+              <Label>Paragraph types</Label>
+              {paragraphTypes.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Nessun Paragraph Type ancora — creane uno nella sezione Paragrafi.</p>
+              ) : (
+                <div className="flex flex-col gap-1.5 border rounded-lg p-3">
+                  {paragraphTypes.map((pt) => {
+                    const checked = (form.targetBundles ?? []).includes(pt.machineName);
+                    return (
+                      <label key={pt.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            const current = form.targetBundles ?? [];
+                            set('targetBundles', e.target.checked
+                              ? [...current, pt.machineName]
+                              : current.filter((b) => b !== pt.machineName));
+                          }}
+                        />
+                        <span className="font-medium">{pt.label}</span>
+                        <span className="font-mono text-xs text-muted-foreground">{pt.machineName}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {isListType(form.type) && (
             <div className="space-y-2">
               <Label>Valori consentiti</Label>
               <div className="space-y-1.5 mb-2">
@@ -315,6 +413,7 @@ export default function FieldDialog({ open, field, onSave, onClose }: Props) {
               </div>
             </div>
           )}
+          </div>
         </div>
 
         <DialogFooter>

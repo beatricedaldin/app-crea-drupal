@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { v4 as uuid } from 'uuid';
-import { Project, ContentType, Vocabulary, ParagraphType, MediaType } from '@/lib/types';
+import { Project, ContentType, Vocabulary, ParagraphType } from '@/lib/types';
 import { toMachineName } from '@/lib/utils-drupal';
 import { EntityType, ProjectTab } from '@/app/page';
 import { Button } from '@/components/ui/button';
@@ -13,12 +13,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { ChevronLeft, Plus, Trash2, Pencil, Layers, BookOpen, PanelsTopLeft, Film, Database } from 'lucide-react';
-import { MEDIA_SOURCE_TYPES } from '@/lib/drupal-fields';
+import { ChevronLeft, Plus, Trash2, Pencil, Layers, BookOpen, PanelsTopLeft, Database } from 'lucide-react';
 
 interface Props {
   project: Project;
@@ -34,7 +32,7 @@ type DialogState =
   | { mode: 'create'; entityType: EntityType }
   | { mode: 'edit'; entityType: EntityType; id: string };
 
-const emptyForm = { label: '', machineName: '', description: '', hierarchical: false, sourceType: 'image' as const };
+const emptyForm = { label: '', machineName: '', description: '', hierarchical: false };
 
 export default function ProjectView({ project, tab, onTabChange, onChange, onBack, onOpenEntity }: Props) {
   const [dialog, setDialog] = useState<DialogState>({ mode: 'closed' });
@@ -55,14 +53,12 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
       machineName: entity.machineName,
       description: entity.description ?? '',
       hierarchical: 'hierarchical' in entity ? (entity.hierarchical as boolean) : false,
-      sourceType: 'sourceType' in entity ? (entity.sourceType as typeof form.sourceType) : 'image',
     });
     setDialog({ mode: 'edit', entityType, id });
   };
 
   const getEntity = (type: EntityType, id: string) => {
-    const list = getList(type);
-    return list.find((e) => e.id === id);
+    return getList(type).find((e) => e.id === id);
   };
 
   const getList = (type: EntityType) => {
@@ -70,7 +66,6 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
       case 'contentType': return project.contentTypes;
       case 'vocabulary': return project.vocabularies;
       case 'paragraph': return project.paragraphTypes;
-      case 'media': return project.mediaTypes;
     }
   };
 
@@ -92,9 +87,6 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
         case 'paragraph':
           updated.paragraphTypes = [...project.paragraphTypes, base as ParagraphType];
           break;
-        case 'media':
-          updated.mediaTypes = [...project.mediaTypes, { ...base, sourceType: form.sourceType } as MediaType];
-          break;
       }
       onChange(updated);
     } else if (dialog.mode === 'edit') {
@@ -107,7 +99,6 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
         case 'contentType': updated.contentTypes = project.contentTypes.map(updater) as ContentType[]; break;
         case 'vocabulary': updated.vocabularies = project.vocabularies.map((v) => v.id === dialog.id ? { ...v, ...updater(v), hierarchical: form.hierarchical } : v); break;
         case 'paragraph': updated.paragraphTypes = project.paragraphTypes.map(updater) as ParagraphType[]; break;
-        case 'media': updated.mediaTypes = project.mediaTypes.map((m) => m.id === dialog.id ? { ...m, ...updater(m), sourceType: form.sourceType } : m); break;
       }
       onChange(updated);
     }
@@ -120,7 +111,6 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
       case 'contentType': updated.contentTypes = project.contentTypes.filter((e) => e.id !== id); break;
       case 'vocabulary': updated.vocabularies = project.vocabularies.filter((e) => e.id !== id); break;
       case 'paragraph': updated.paragraphTypes = project.paragraphTypes.filter((e) => e.id !== id); break;
-      case 'media': updated.mediaTypes = project.mediaTypes.filter((e) => e.id !== id); break;
     }
     onChange(updated);
   };
@@ -129,7 +119,6 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
     contentType: 'Content Type',
     vocabulary: 'Vocabulary',
     paragraph: 'Paragraph Type',
-    media: 'Media Type',
   };
 
   const dialogEntityType = dialog.mode !== 'closed' ? dialog.entityType : 'contentType';
@@ -222,11 +211,6 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
               Paragraph Types
               <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{project.paragraphTypes.length}</Badge>
             </TabsTrigger>
-            <TabsTrigger value="media" className="flex items-center gap-1.5">
-              <Film className="h-4 w-4" />
-              Media Types
-              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{project.mediaTypes.length}</Badge>
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="contentTypes">
@@ -237,9 +221,6 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
           </TabsContent>
           <TabsContent value="paragraphs">
             <EntityTable type="paragraph" items={project.paragraphTypes} />
-          </TabsContent>
-          <TabsContent value="media">
-            <EntityTable type="media" items={project.mediaTypes} />
           </TabsContent>
         </Tabs>
       </main>
@@ -291,21 +272,6 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
                   onCheckedChange={(v) => setForm((f) => ({ ...f, hierarchical: v }))}
                 />
                 <Label htmlFor="e-hierarchical">Tassonomia gerarchica</Label>
-              </div>
-            )}
-            {dialogEntityType === 'media' && (
-              <div className="space-y-1.5">
-                <Label htmlFor="e-source">Sorgente media</Label>
-                <Select value={form.sourceType} onValueChange={(v) => setForm((f) => ({ ...f, sourceType: v as typeof form.sourceType }))}>
-                  <SelectTrigger id="e-source">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MEDIA_SOURCE_TYPES.map((s) => (
-                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
             )}
           </div>

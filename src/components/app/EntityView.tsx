@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import * as XLSX from 'xlsx';
-import { Project, Field, ContentType, Vocabulary, ParagraphType, MediaType } from '@/lib/types';
+import { Project, Field, ContentType, Vocabulary, ParagraphType } from '@/lib/types';
 import { EntityType } from '@/app/page';
 import { CATEGORY_COLORS, getFieldTypeInfo } from '@/lib/drupal-fields';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,7 @@ interface Props {
   onBack: () => void;
 }
 
-type AnyEntity = ContentType | Vocabulary | ParagraphType | MediaType;
+type AnyEntity = ContentType | Vocabulary | ParagraphType;
 
 export default function EntityView({ project, entityType, entityId, onChange, onBack }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -35,7 +35,6 @@ export default function EntityView({ project, entityType, entityId, onChange, on
       case 'contentType': return project.contentTypes;
       case 'vocabulary': return project.vocabularies;
       case 'paragraph': return project.paragraphTypes;
-      case 'media': return project.mediaTypes;
     }
   };
 
@@ -55,9 +54,6 @@ export default function EntityView({ project, entityType, entityId, onChange, on
         break;
       case 'paragraph':
         updated.paragraphTypes = project.paragraphTypes.map((e) => e.id === entityId ? { ...e, fields } : e);
-        break;
-      case 'media':
-        updated.mediaTypes = project.mediaTypes.map((e) => e.id === entityId ? { ...e, fields } : e);
         break;
     }
     onChange(updated);
@@ -89,14 +85,12 @@ export default function EntityView({ project, entityType, entityId, onChange, on
     contentType: 'Content Type',
     vocabulary: 'Vocabulary',
     paragraph: 'Paragraph Type',
-    media: 'Media Type',
   };
 
   const tabLabel: Record<EntityType, string> = {
     contentType: 'Content Types',
     vocabulary: 'Vocabularies',
     paragraph: 'Paragraph Types',
-    media: 'Media Types',
   };
 
   const exportJson = () => {
@@ -122,10 +116,8 @@ export default function EntityView({ project, entityType, entityId, onChange, on
       'Modulo Drupal': getFieldTypeInfo(f.type)?.drupalModule ?? '',
       'Target type': f.targetType ?? '',
       'Target bundles': (f.targetBundles ?? []).join(', '),
+      'Taxonomy vocabulary': f.taxonomyVocabulary ?? '',
       'Valori consentiti': (f.allowedValues ?? []).map((v) => `${v.key}:${v.label}`).join(' | '),
-      'Lunghezza max': f.maxLength ?? '',
-      'Estensioni': f.allowedExtensions ?? '',
-      'Dim. massima': f.maxFileSize ?? '',
     }));
 
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -254,6 +246,9 @@ export default function EntityView({ project, entityType, entityId, onChange, on
       <FieldDialog
         open={dialogOpen}
         field={editingField}
+        paragraphTypes={project.paragraphTypes}
+        contentTypes={project.contentTypes}
+        vocabularies={project.vocabularies}
         onSave={saveField}
         onClose={() => { setDialogOpen(false); setEditingField(undefined); }}
       />

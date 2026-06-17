@@ -1,32 +1,29 @@
 export type FieldTypeKey =
-  | 'string'
-  | 'string_long'
-  | 'text'
-  | 'text_long'
-  | 'text_with_summary'
+  | 'plain_text'
+  | 'plain_text_long'
+  | 'formatted_text'
+  | 'formatted_text_long'
+  | 'formatted_text_with_summary'
+  | 'list'
+  | 'radio'
   | 'integer'
   | 'decimal'
   | 'float'
   | 'boolean'
-  | 'email'
-  | 'telephone'
-  | 'link'
+  | 'custom_link'
   | 'datetime'
   | 'daterange'
-  | 'image'
-  | 'file'
+  | 'media_image'
+  | 'media_video'
+  | 'media_audio'
+  | 'media_document'
+  | 'taxonomy'
   | 'entity_reference'
-  | 'entity_reference_revisions'
-  | 'list_string'
-  | 'list_integer'
-  | 'list_float'
-  | 'address'
-  | 'geofield'
-  | 'video_embed_field';
+  | 'entity_reference_revisions';
 
-export type EntityReferenceTarget = 'content_type' | 'taxonomy' | 'user' | 'media' | 'paragraph';
+export type EntityReferenceTarget = 'node_type' | 'node' | 'user';
 
-export type MediaSourceType = 'image' | 'video' | 'audio' | 'file' | 'remote_video';
+
 
 export interface ListOption {
   key: string;
@@ -44,15 +41,13 @@ export interface Field {
   // entity_reference
   targetType?: EntityReferenceTarget;
   targetBundles?: string[];
+  // taxonomy
+  taxonomyVocabulary?: string;
   // list fields
   allowedValues?: ListOption[];
-  // string
-  maxLength?: number;
-  // file / image
-  allowedExtensions?: string;
-  maxFileSize?: string;
   // datetime
   dateOnly?: boolean;
+  dateFormat?: string;
 }
 
 export interface ContentType {
@@ -82,15 +77,6 @@ export interface ParagraphType {
   fields: Field[];
 }
 
-export interface MediaType {
-  id: string;
-  label: string;
-  machineName: string;
-  description?: string;
-  sourceType: MediaSourceType;
-  fields: Field[];
-}
-
 export interface Project {
   id: string;
   name: string;
@@ -99,7 +85,6 @@ export interface Project {
   contentTypes: ContentType[];
   vocabularies: Vocabulary[];
   paragraphTypes: ParagraphType[];
-  mediaTypes: MediaType[];
   createdAt: string;
   updatedAt: string;
 }
