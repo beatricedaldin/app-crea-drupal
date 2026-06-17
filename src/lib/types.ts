@@ -23,8 +23,6 @@ export type FieldTypeKey =
 
 export type EntityReferenceTarget = 'node_type' | 'node' | 'user';
 
-
-
 export interface ListOption {
   key: string;
   label: string;
@@ -38,16 +36,18 @@ export interface Field {
   required: boolean;
   multiple: boolean;
   description?: string;
-  // entity_reference
   targetType?: EntityReferenceTarget;
   targetBundles?: string[];
-  // taxonomy
   taxonomyVocabulary?: string;
-  // list fields
   allowedValues?: ListOption[];
-  // datetime
   dateOnly?: boolean;
   dateFormat?: string;
+}
+
+export interface TaxonomyTerm {
+  id: string;
+  name: string;
+  parentId?: string;
 }
 
 export interface ContentType {
@@ -60,13 +60,14 @@ export interface ContentType {
   updatedAt: string;
 }
 
-export interface Vocabulary {
+export interface Taxonomy {
   id: string;
   label: string;
   machineName: string;
   description?: string;
   hierarchical: boolean;
   fields: Field[];
+  terms: TaxonomyTerm[];
 }
 
 export interface ParagraphType {
@@ -83,7 +84,7 @@ export interface Project {
   clientName?: string;
   description?: string;
   contentTypes: ContentType[];
-  vocabularies: Vocabulary[];
+  taxonomies: Taxonomy[];
   paragraphTypes: ParagraphType[];
   createdAt: string;
   updatedAt: string;

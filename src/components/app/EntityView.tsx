@@ -1,20 +1,25 @@
 'use client';
 
 import { useState } from 'react';
-import * as XLSX from 'xlsx';
-import { Project, Field, ContentType, Vocabulary, ParagraphType } from '@/lib/types';
+import { v4 as uuid } from 'uuid';
+import { Project, Field, ContentType, Taxonomy, TaxonomyTerm, ParagraphType } from '@/lib/types';
 import { EntityType } from '@/app/page';
 import { CATEGORY_COLORS, getFieldTypeInfo } from '@/lib/drupal-fields';
+
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
 import {
-  ChevronLeft, Plus, Trash2, Pencil, Database, Download, FileJson,
+  ChevronLeft, Plus, Trash2, Pencil, Database,
 } from 'lucide-react';
 import FieldDialog from './FieldDialog';
+import ConfirmDialog from './ConfirmDialog';
 
 interface Props {
   project: Project;
@@ -24,23 +29,28 @@ interface Props {
   onBack: () => void;
 }
 
-
-type AnyEntity = ContentType | Vocabulary | ParagraphType;
+type AnyEntity = ContentType | Taxonomy | ParagraphType;
 
 export default function EntityView({ project, entityType, entityId, onChange, onBack }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingField, setEditingField] = useState<Field | undefined>();
+  const [termName, setTermName] = useState('');
+  const [termParentId, setTermParentId] = useState('');
+  const [confirmField, setConfirmField] = useState<Field | null>(null);
+  const [confirmTermId, setConfirmTermId] = useState<string | null>(null);
 
   const getEntityList = (): AnyEntity[] => {
     switch (entityType) {
       case 'contentType': return project.contentTypes;
-      case 'vocabulary': return project.vocabularies;
+      case 'taxonomy': return project.taxonomies;
       case 'paragraph': return project.paragraphTypes;
     }
   };
 
   const entity = getEntityList().find((e) => e.id === entityId);
   if (!entity) return null;
+
+  const taxonomy = entityType === 'taxonomy' ? (entity as Taxonomy) : null;
 
   const now = () => new Date().toISOString();
 
@@ -50,14 +60,36 @@ export default function EntityView({ project, entityType, entityId, onChange, on
       case 'contentType':
         updated.contentTypes = project.contentTypes.map((e) => e.id === entityId ? { ...e, fields, updatedAt: now() } : e);
         break;
-      case 'vocabulary':
-        updated.vocabularies = project.vocabularies.map((e) => e.id === entityId ? { ...e, fields } : e);
+      case 'taxonomy':
+        updated.taxonomies = project.taxonomies.map((e) => e.id === entityId ? { ...e, fields } : e);
         break;
       case 'paragraph':
         updated.paragraphTypes = project.paragraphTypes.map((e) => e.id === entityId ? { ...e, fields } : e);
         break;
     }
     onChange(updated);
+  };
+
+  const updateTerms = (terms: TaxonomyTerm[]) => {
+    const updated = { ...project, updatedAt: now() } as Project;
+    updated.taxonomies = project.taxonomies.map((e) => e.id === entityId ? { ...e, terms } : e);
+    onChange(updated);
+  };
+
+  const addTerm = () => {
+    if (!termName.trim()) return;
+    const newTerm: TaxonomyTerm = {
+      id: uuid(),
+      name: termName.trim(),
+      parentId: termParentId || undefined,
+    };
+    updateTerms([...(taxonomy?.terms ?? []), newTerm]);
+    setTermName('');
+    setTermParentId('');
+  };
+
+  const deleteTerm = (termId: string) => {
+    updateTerms((taxonomy?.terms ?? []).filter((t) => t.id !== termId));
   };
 
   const saveField = (field: Field) => {
@@ -72,60 +104,21 @@ export default function EntityView({ project, entityType, entityId, onChange, on
 
   const deleteField = (id: string) => updateFields(entity.fields.filter((f) => f.id !== id));
 
-  const openAdd = () => {
-    setEditingField(undefined);
-    setDialogOpen(true);
-  };
-
-  const openEdit = (field: Field) => {
-    setEditingField(field);
-    setDialogOpen(true);
-  };
+  const openAdd = () => { setEditingField(undefined); setDialogOpen(true); };
+  const openEdit = (field: Field) => { setEditingField(field); setDialogOpen(true); };
 
   const entityTypeLabel: Record<EntityType, string> = {
     contentType: 'Content Type',
-    vocabulary: 'Vocabulary',
+    taxonomy: 'Taxonomy',
     paragraph: 'Paragraph Type',
   };
 
   const tabLabel: Record<EntityType, string> = {
     contentType: 'Content Types',
-    vocabulary: 'Vocabularies',
+    taxonomy: 'Taxonomies',
     paragraph: 'Paragraph Types',
   };
 
-  const exportJson = () => {
-    const data = JSON.stringify({ entity: entityTypeLabel[entityType], ...entity }, null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${entity.machineName}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const exportExcel = () => {
-    const rows = entity.fields.map((f) => ({
-      'Label': f.label,
-      'Machine name': f.machineName,
-      'Tipo': getFieldTypeInfo(f.type)?.label ?? f.type,
-      'Categoria': getFieldTypeInfo(f.type)?.category ?? '',
-      'Obbligatorio': f.required ? 'Sì' : 'No',
-      'Multiplo': f.multiple ? 'Sì' : 'No',
-      'Descrizione': f.description ?? '',
-      'Modulo Drupal': getFieldTypeInfo(f.type)?.drupalModule ?? '',
-      'Target type': f.targetType ?? '',
-      'Target bundles': (f.targetBundles ?? []).join(', '),
-      'Taxonomy vocabulary': f.taxonomyVocabulary ?? '',
-      'Valori consentiti': (f.allowedValues ?? []).map((v) => `${v.key}:${v.label}`).join(' | '),
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, entity.machineName.slice(0, 31));
-    XLSX.writeFile(wb, `${entity.machineName}.xlsx`);
-  };
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -155,14 +148,6 @@ export default function EntityView({ project, entityType, entityId, onChange, on
             )}
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={exportJson}>
-              <FileJson className="h-4 w-4 mr-1.5" />
-              JSON
-            </Button>
-            <Button variant="outline" size="sm" onClick={exportExcel}>
-              <Download className="h-4 w-4 mr-1.5" />
-              Excel
-            </Button>
             <Button size="sm" onClick={openAdd}>
               <Plus className="h-4 w-4 mr-1.5" />
               Aggiungi Campo
@@ -172,8 +157,9 @@ export default function EntityView({ project, entityType, entityId, onChange, on
 
         <Separator className="mb-6" />
 
+        {/* Campi */}
         {entity.fields.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground border-2 border-dashed rounded-xl">
+          <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-xl">
             <p className="text-base font-medium">Nessun campo</p>
             <p className="text-sm mt-1">Aggiungi i campi di questo {entityTypeLabel[entityType]}.</p>
             <Button className="mt-4" onClick={openAdd}>
@@ -191,7 +177,7 @@ export default function EntityView({ project, entityType, entityId, onChange, on
                   <TableHead>Tipo</TableHead>
                   <TableHead className="text-center">Obbligatorio</TableHead>
                   <TableHead className="text-center">Multiplo</TableHead>
-                  <TableHead className="w-[80px]" />
+                  <TableHead className="w-20" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -207,30 +193,17 @@ export default function EntityView({ project, entityType, entityId, onChange, on
                         </span>
                       </TableCell>
                       <TableCell className="text-center">
-                        {field.required ? (
-                          <Badge variant="destructive" className="text-xs">Sì</Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">No</span>
-                        )}
+                        {field.required ? <Badge variant="destructive" className="text-xs">Sì</Badge> : <span className="text-muted-foreground text-xs">No</span>}
                       </TableCell>
                       <TableCell className="text-center">
-                        {field.multiple ? (
-                          <Badge variant="secondary" className="text-xs">Sì</Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">No</span>
-                        )}
+                        {field.multiple ? <Badge variant="secondary" className="text-xs">Sì</Badge> : <span className="text-muted-foreground text-xs">No</span>}
                       </TableCell>
                       <TableCell>
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(field)}>
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                            onClick={() => deleteField(field.id)}
-                          >
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => setConfirmField(field)}>
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
@@ -242,14 +215,110 @@ export default function EntityView({ project, entityType, entityId, onChange, on
             </Table>
           </div>
         )}
+
+        {/* Termini — solo per taxonomy */}
+        {taxonomy && (
+          <>
+            <Separator className="my-8" />
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold">Termini</h3>
+              <Badge variant="secondary">{taxonomy.terms?.length ?? 0} termini</Badge>
+            </div>
+
+            {/* Lista termini */}
+            {(taxonomy.terms?.length ?? 0) > 0 && (
+              <div className="rounded-lg border overflow-hidden mb-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      {taxonomy.hierarchical && <TableHead>Genitore</TableHead>}
+                      <TableHead className="w-12" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {taxonomy.terms.map((term) => (
+                      <TableRow key={term.id}>
+                        <TableCell className="font-medium">{term.name}</TableCell>
+                        {taxonomy.hierarchical && (
+                          <TableCell className="text-sm text-muted-foreground">
+                            {taxonomy.terms.find((p) => p.id === term.parentId)?.name ?? '—'}
+                          </TableCell>
+                        )}
+                        <TableCell>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => setConfirmTermId(term.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
+            {/* Form aggiunta termine */}
+            <div className="border rounded-lg p-4 bg-muted/20">
+              <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide">Aggiungi termine</p>
+              <div className="flex gap-2 flex-wrap">
+                <div className="flex-1 min-w-36 space-y-1">
+                  <Label className="text-xs">Nome *</Label>
+                  <Input
+                    value={termName}
+                    onChange={(e) => setTermName(e.target.value)}
+                    placeholder="es. Sport"
+                    onKeyDown={(e) => e.key === 'Enter' && addTerm()}
+                  />
+                </div>
+                {taxonomy.hierarchical && (
+                  <div className="flex-1 min-w-36 space-y-1">
+                    <Label className="text-xs">Genitore</Label>
+                    <Select value={termParentId} onValueChange={(v) => setTermParentId(v ?? '')}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Nessuno" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Nessuno</SelectItem>
+                        {taxonomy.terms.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div className="flex items-end">
+                  <Button onClick={addTerm} disabled={!termName.trim()}>
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    Aggiungi
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </main>
 
+      <ConfirmDialog
+        open={confirmField !== null}
+        title={`Eliminare il campo "${confirmField?.label}"?`}
+        description="L'operazione è irreversibile."
+        onConfirm={() => { if (confirmField) deleteField(confirmField.id); setConfirmField(null); }}
+        onCancel={() => setConfirmField(null)}
+      />
+      <ConfirmDialog
+        open={confirmTermId !== null}
+        title="Eliminare il termine?"
+        description="L'operazione è irreversibile."
+        onConfirm={() => { if (confirmTermId) deleteTerm(confirmTermId); setConfirmTermId(null); }}
+        onCancel={() => setConfirmTermId(null)}
+      />
       <FieldDialog
         open={dialogOpen}
         field={editingField}
+        fieldPrefix={entityType === 'contentType' || entityType === 'paragraph' ? `${entity.machineName}_` : undefined}
         paragraphTypes={project.paragraphTypes}
         contentTypes={project.contentTypes}
-        vocabularies={project.vocabularies}
+        vocabularies={project.taxonomies}
         onSave={saveField}
         onClose={() => { setDialogOpen(false); setEditingField(undefined); }}
       />

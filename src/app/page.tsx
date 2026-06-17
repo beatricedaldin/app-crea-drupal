@@ -7,8 +7,8 @@ import ProjectsView from '@/components/app/ProjectsView';
 import ProjectView from '@/components/app/ProjectView';
 import EntityView from '@/components/app/EntityView';
 
-export type EntityType = 'contentType' | 'vocabulary' | 'paragraph';
-export type ProjectTab = 'contentTypes' | 'vocabularies' | 'paragraphs';
+export type EntityType = 'contentType' | 'taxonomy' | 'paragraph';
+export type ProjectTab = 'contentTypes' | 'taxonomies' | 'paragraphs';
 
 export type Nav =
   | { view: 'projects' }
@@ -18,7 +18,7 @@ export type Nav =
 export function entityTypeToTab(et: EntityType): ProjectTab {
   const map: Record<EntityType, ProjectTab> = {
     contentType: 'contentTypes',
-    vocabulary: 'vocabularies',
+    taxonomy: 'taxonomies',
     paragraph: 'paragraphs',
   };
   return map[et];

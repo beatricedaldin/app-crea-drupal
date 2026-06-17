@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Field, FieldTypeKey, EntityReferenceTarget, ListOption, ParagraphType, ContentType, Vocabulary } from '@/lib/types';
+import { Field, FieldTypeKey, EntityReferenceTarget, ListOption, ParagraphType, ContentType, Taxonomy } from '@/lib/types';
 import { FIELD_TYPES, FIELD_CATEGORIES, CATEGORY_COLORS, getFieldTypeInfo } from '@/lib/drupal-fields';
-import { toFieldMachineName } from '@/lib/utils-drupal';
+import { toFieldMachineName, toMachineName } from '@/lib/utils-drupal';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,9 +19,10 @@ import { v4 as uuid } from 'uuid';
 interface Props {
   open: boolean;
   field?: Field;
+  fieldPrefix?: string;
   paragraphTypes: ParagraphType[];
   contentTypes: ContentType[];
-  vocabularies: Vocabulary[];
+  vocabularies: Taxonomy[];
   onSave: (field: Field) => void;
   onClose: () => void;
 }
@@ -35,7 +36,7 @@ const defaultField = (): Omit<Field, 'id'> => ({
   description: '',
 });
 
-export default function FieldDialog({ open, field, paragraphTypes, contentTypes, vocabularies, onSave, onClose }: Props) {
+export default function FieldDialog({ open, field, fieldPrefix, paragraphTypes, contentTypes, vocabularies, onSave, onClose }: Props) {
   const [form, setForm] = useState(defaultField());
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [allowedValues, setAllowedValues] = useState<ListOption[]>([]);
@@ -59,11 +60,14 @@ export default function FieldDialog({ open, field, paragraphTypes, contentTypes,
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
+  const autoMachineName = (label: string) =>
+    fieldPrefix ? `${fieldPrefix}${toMachineName(label)}` : toFieldMachineName(label);
+
   const handleLabelChange = (label: string) => {
     setForm((f) => ({
       ...f,
       label,
-      machineName: field ? f.machineName : toFieldMachineName(label),
+      machineName: field ? f.machineName : autoMachineName(label),
     }));
   };
 
@@ -82,7 +86,7 @@ export default function FieldDialog({ open, field, paragraphTypes, contentTypes,
     const saved: Field = {
       id: field?.id ?? uuid(),
       ...form,
-      machineName: form.machineName.trim() || toFieldMachineName(form.label),
+      machineName: form.machineName.trim() || autoMachineName(form.label),
       label: form.label.trim(),
       description: form.description?.trim() || undefined,
       allowedValues: isListType(form.type) ? allowedValues : undefined,

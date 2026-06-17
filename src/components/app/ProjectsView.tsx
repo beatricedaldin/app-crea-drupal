@@ -11,7 +11,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, FolderOpen, Database } from 'lucide-react';
+import { Plus, Trash2, FolderOpen, Database, Upload } from 'lucide-react';
+import { useRef } from 'react';
+import ConfirmDialog from './ConfirmDialog';
 
 interface Props {
   projects: Project[];
@@ -24,6 +26,42 @@ const emptyForm = { name: '', clientName: '', description: '' };
 export default function ProjectsView({ projects, onChange, onOpen }: Props) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const importJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!fileInputRef.current) return;
+    fileInputRef.current.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const raw = JSON.parse(ev.target?.result as string);
+        const list: Record<string, unknown>[] = Array.isArray(raw) ? raw : [raw];
+        const now = new Date().toISOString();
+        const imported = list.map((p): Project => {
+          const taxonomies = ((p.taxonomies ?? p.vocabularies ?? []) as Record<string, unknown>[])
+            .map((t) => ({ ...t, terms: (t.terms as unknown[]) ?? [] }));
+          return {
+            ...(p as Omit<Project, 'id' | 'updatedAt' | 'taxonomies'>),
+            id: uuid(),
+            taxonomies: taxonomies as Project['taxonomies'],
+            contentTypes: (p.contentTypes as Project['contentTypes']) ?? [],
+            paragraphTypes: (p.paragraphTypes as Project['paragraphTypes']) ?? [],
+            createdAt: (p.createdAt as string) ?? now,
+            updatedAt: now,
+          };
+        });
+        onChange([...projects, ...imported]);
+        setImportError(null);
+      } catch {
+        setImportError('File non valido. Assicurati di importare un JSON esportato da questa app.');
+      }
+    };
+    reader.readAsText(file);
+  };
 
   const createProject = () => {
     if (!form.name.trim()) return;
@@ -34,7 +72,7 @@ export default function ProjectsView({ projects, onChange, onOpen }: Props) {
       clientName: form.clientName.trim() || undefined,
       description: form.description.trim() || undefined,
       contentTypes: [],
-      vocabularies: [],
+      taxonomies: [],
       paragraphTypes: [],
       createdAt: now,
       updatedAt: now,
@@ -54,12 +92,31 @@ export default function ProjectsView({ projects, onChange, onOpen }: Props) {
             <p className="text-xs text-muted-foreground">Progetta la struttura dei tuoi siti Drupal</p>
           </div>
         </div>
-        <Button onClick={() => setOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nuovo Progetto
-        </Button>
+        <div className="flex gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={importJson}
+          />
+          <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="h-4 w-4 mr-2" />
+            Importa JSON
+          </Button>
+          <Button onClick={() => setOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nuovo Progetto
+          </Button>
+        </div>
       </header>
 
+      {importError && (
+        <div className="bg-destructive/10 border-b border-destructive/20 px-6 py-2 text-sm text-destructive flex items-center justify-between">
+          {importError}
+          <button onClick={() => setImportError(null)} className="ml-4 text-destructive/70 hover:text-destructive">✕</button>
+        </div>
+      )}
       <main className="max-w-5xl mx-auto px-6 py-10">
         <h2 className="text-sm font-medium text-muted-foreground mb-4 uppercase tracking-wider">
           Progetti ({projects.length})
@@ -88,7 +145,7 @@ export default function ProjectsView({ projects, onChange, onOpen }: Props) {
                   )}
                   <div className="flex flex-wrap gap-1.5">
                     <Badge variant="secondary">{p.contentTypes.length} Content Types</Badge>
-                    <Badge variant="secondary">{p.vocabularies.length} Vocabularies</Badge>
+                    <Badge variant="secondary">{p.taxonomies.length} Taxonomies</Badge>
                     <Badge variant="secondary">{p.paragraphTypes.length} Paragraphs</Badge>
                   </div>
                 </CardContent>
@@ -99,7 +156,7 @@ export default function ProjectsView({ projects, onChange, onOpen }: Props) {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => onChange(projects.filter((x) => x.id !== p.id))}
+                      onClick={() => setConfirmId(p.id)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -114,6 +171,14 @@ export default function ProjectsView({ projects, onChange, onOpen }: Props) {
           </div>
         )}
       </main>
+
+      <ConfirmDialog
+        open={confirmId !== null}
+        title="Eliminare il progetto?"
+        description="Questa azione è irreversibile. Tutti i content type, taxonomy e paragrafi verranno eliminati."
+        onConfirm={() => { onChange(projects.filter((x) => x.id !== confirmId)); setConfirmId(null); }}
+        onCancel={() => setConfirmId(null)}
+      />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
