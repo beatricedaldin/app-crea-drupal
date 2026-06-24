@@ -16,10 +16,11 @@ import {
 } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
 import {
-  ChevronLeft, Plus, Trash2, Pencil, Database,
+  ChevronLeft, Plus, Trash2, Pencil, Database, Download,
 } from 'lucide-react';
 import FieldDialog from './FieldDialog';
 import ConfirmDialog from './ConfirmDialog';
+import { downloadParagraphModule } from '@/lib/paragraph-module-generator';
 
 interface Props {
   project: Project;
@@ -148,6 +149,12 @@ export default function EntityView({ project, entityType, entityId, onChange, on
             )}
           </div>
           <div className="flex gap-2">
+            {entityType === 'paragraph' && (
+              <Button variant="outline" size="sm" onClick={() => downloadParagraphModule(entity as ParagraphType)}>
+                <Download className="h-4 w-4 mr-1.5" />
+                Download modulo
+              </Button>
+            )}
             <Button size="sm" onClick={openAdd}>
               <Plus className="h-4 w-4 mr-1.5" />
               Aggiungi Campo

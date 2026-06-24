@@ -1,7 +1,6 @@
 export type FieldTypeKey =
   | 'plain_text'
   | 'plain_text_long'
-  | 'formatted_text'
   | 'formatted_text_long'
   | 'formatted_text_with_summary'
   | 'list'

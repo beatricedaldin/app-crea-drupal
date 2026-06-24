@@ -12,7 +12,6 @@ export const FIELD_TYPES: FieldTypeInfo[] = [
   // Testo
   { key: 'plain_text',                   label: 'Plain text',                    description: 'Testo semplice, max 255 caratteri. Usato per titoli, nomi.',            category: 'Testo' },
   { key: 'plain_text_long',              label: 'Plain text long',               description: 'Testo semplice senza limite di caratteri, nessun editor.',              category: 'Testo' },
-  { key: 'formatted_text',              label: 'Formatted text',                description: 'Testo con editor WYSIWYG (CKEditor). Max 255 caratteri.',               category: 'Testo' },
   { key: 'formatted_text_long',         label: 'Formatted text long',           description: 'Testo lungo con editor WYSIWYG. Campo standard per contenuti.',         category: 'Testo' },
   { key: 'formatted_text_with_summary', label: 'Formatted text with summary',   description: 'Campo body con teaser/anteprima separata. Usato per articoli e pagine.', category: 'Testo' },
   { key: 'list',                        label: 'List',                          description: 'Selezione da un elenco di valori predefiniti (select/checkbox).',        category: 'Testo' },

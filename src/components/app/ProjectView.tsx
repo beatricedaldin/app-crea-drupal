@@ -18,7 +18,9 @@ import { Switch } from '@/components/ui/switch';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { ChevronLeft, Plus, Trash2, Pencil, Layers, BookOpen, PanelsTopLeft, Database, Download, FileJson } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Pencil, Layers, BookOpen, PanelsTopLeft, Database, Download, FileJson, LayoutTemplate, Package } from 'lucide-react';
+import { PARAGRAPH_PRESETS, ParagraphPreset } from '@/lib/paragraph-presets';
+import { downloadTaxonomyModule } from '@/lib/taxonomy-module-generator';
 import ConfirmDialog from './ConfirmDialog';
 
 interface Props {
@@ -41,6 +43,7 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
   const [dialog, setDialog] = useState<DialogState>({ mode: 'closed' });
   const [form, setForm] = useState(emptyForm);
   const [confirmDelete, setConfirmDelete] = useState<{ type: EntityType; id: string; label: string } | null>(null);
+  const [paragraphTemplatePicker, setParagraphTemplatePicker] = useState(false);
 
   const now = () => new Date().toISOString();
 
@@ -121,6 +124,25 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
     onChange(updated);
   };
 
+  const createParagraphFromTemplate = (preset: ParagraphPreset) => {
+    const t = now();
+    onChange({
+      ...project,
+      updatedAt: t,
+      paragraphTypes: [
+        ...project.paragraphTypes,
+        {
+          id: uuid(),
+          label: preset.label,
+          machineName: preset.machineName,
+          description: preset.description,
+          fields: preset.fields.map((f) => ({ ...f, id: uuid(), machineName: `${preset.machineName}_${f.machineName}` })),
+        },
+      ],
+    });
+    setParagraphTemplatePicker(false);
+  };
+
   const entityTypeLabel: Record<EntityType, string> = {
     contentType: 'Content Type',
     taxonomy: 'Taxonomy',
@@ -130,7 +152,6 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
   // ── Export ────────────────────────────────────────────────────────────────
 
   type F = import('@/lib/types').Field;
-  type EntityWithFields = { label: string; machineName: string; fields: F[] };
 
   const toFieldRows = (fields: F[]) =>
     fields.map((f) => ({
@@ -147,15 +168,6 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
       'Valori': (f.allowedValues ?? []).map((v) => `${v.key}:${v.label}`).join(' | '),
       'Descrizione': f.description ?? '',
     }));
-
-  const toFieldRowsWithEntity = (entities: EntityWithFields[]) =>
-    entities.flatMap((entity) =>
-      entity.fields.map((f) => ({
-        'Taxonomy': entity.label,
-        'Taxonomy machine name': entity.machineName,
-        ...toFieldRows([f])[0],
-      }))
-    );
 
   const addSheet = (wb: XLSX.WorkBook, name: string, rows: object[]) => {
     const ws = rows.length > 0
@@ -176,22 +188,53 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
 
   const exportProjectExcel = () => {
     const wb = XLSX.utils.book_new();
+
     // Un foglio per ogni Content Type
     project.contentTypes.forEach((ct) => addSheet(wb, ct.label, toFieldRows(ct.fields)));
-    // Un foglio unico per tutti i campi delle Taxonomy
-    addSheet(wb, 'Taxonomy Fields', toFieldRowsWithEntity(project.taxonomies));
-    // Un foglio unico per tutti i termini delle Taxonomy
-    const termRows = project.taxonomies.flatMap((tx) =>
-      (tx.terms ?? []).map((t) => ({
-        'Taxonomy': tx.label,
-        'Taxonomy machine name': tx.machineName,
-        'Termine': t.name,
-        'Genitore': tx.terms.find((p) => p.id === t.parentId)?.name ?? '',
-      }))
-    );
-    addSheet(wb, 'Taxonomy Terms', termRows);
+
+    // Un foglio unico per le Taxonomy: ogni taxonomy ha una tabella campi e una tabella termini
+    const fieldHeaders = ['Label', 'Machine name', 'Tipo', 'Categoria', 'Obbligatorio', 'Multiplo', 'Modulo', 'Target type', 'Target bundles', 'Taxonomy vocab', 'Valori', 'Descrizione'];
+    const termHeaders = ['Termine', 'Genitore'];
+    const taxAoa: unknown[][] = [];
+
+    project.taxonomies.forEach((tx, idx) => {
+      if (idx > 0) { taxAoa.push([]); taxAoa.push([]); }
+
+      taxAoa.push([`Taxonomy: ${tx.label} (${tx.machineName})${tx.hierarchical ? ' — Gerarchica' : ''}`]);
+
+      taxAoa.push([]);
+      taxAoa.push(['Campi']);
+      taxAoa.push(fieldHeaders);
+      if (tx.fields.length === 0) {
+        taxAoa.push(['Nessun campo']);
+      } else {
+        toFieldRows(tx.fields).forEach((row) => {
+          taxAoa.push(fieldHeaders.map((h) => (row as Record<string, unknown>)[h] ?? ''));
+        });
+      }
+
+      taxAoa.push([]);
+      taxAoa.push(['Termini']);
+      taxAoa.push(termHeaders);
+      const terms = tx.terms ?? [];
+      if (terms.length === 0) {
+        taxAoa.push(['Nessun termine']);
+      } else {
+        terms.forEach((t) => {
+          taxAoa.push([t.name, terms.find((p) => p.id === t.parentId)?.name ?? '']);
+        });
+      }
+    });
+
+    if (taxAoa.length > 0) {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(taxAoa), 'Taxonomies');
+    } else {
+      addSheet(wb, 'Taxonomies', []);
+    }
+
     // Un foglio per ogni Paragraph Type
     project.paragraphTypes.forEach((pt) => addSheet(wb, pt.label, toFieldRows(pt.fields)));
+
     XLSX.writeFile(wb, `${project.name.replace(/\s+/g, '_')}.xlsx`);
   };
 
@@ -199,14 +242,28 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
 
   const dialogEntityType = dialog.mode !== 'closed' ? dialog.entityType : 'contentType';
 
-  const EntityTable = ({ type, items }: { type: EntityType; items: Array<{ id: string; label: string; machineName: string; description?: string; fields: unknown[] }> }) => (
+  const EntityTable = ({ type, items, onFromTemplate, onDownloadModule }: { type: EntityType; items: Array<{ id: string; label: string; machineName: string; description?: string; fields: unknown[] }>; onFromTemplate?: () => void; onDownloadModule?: () => void }) => (
     <div>
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm text-muted-foreground">{items.length} {items.length === 1 ? 'elemento' : 'elementi'}</span>
-        <Button size="sm" onClick={() => openCreate(type)}>
-          <Plus className="h-4 w-4 mr-1.5" />
-          Aggiungi
-        </Button>
+        <div className="flex gap-2">
+          {onDownloadModule && (
+            <Button size="sm" variant="outline" onClick={onDownloadModule}>
+              <Package className="h-4 w-4 mr-1.5" />
+              Download modulo
+            </Button>
+          )}
+          {onFromTemplate && (
+            <Button size="sm" variant="outline" onClick={onFromTemplate}>
+              <LayoutTemplate className="h-4 w-4 mr-1.5" />
+              Da template
+            </Button>
+          )}
+          <Button size="sm" onClick={() => openCreate(type)}>
+            <Plus className="h-4 w-4 mr-1.5" />
+            Aggiungi
+          </Button>
+        </div>
       </div>
       {items.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
@@ -299,10 +356,10 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
             <EntityTable type="contentType" items={project.contentTypes} />
           </TabsContent>
           <TabsContent value="taxonomies">
-            <EntityTable type="taxonomy" items={project.taxonomies} />
+            <EntityTable type="taxonomy" items={project.taxonomies} onDownloadModule={() => downloadTaxonomyModule(project)} />
           </TabsContent>
           <TabsContent value="paragraphs">
-            <EntityTable type="paragraph" items={project.paragraphTypes} />
+            <EntityTable type="paragraph" items={project.paragraphTypes} onFromTemplate={() => setParagraphTemplatePicker(true)} />
           </TabsContent>
         </Tabs>
       </main>
@@ -314,6 +371,35 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
         onConfirm={() => { if (confirmDelete) deleteEntity(confirmDelete.type, confirmDelete.id); setConfirmDelete(null); }}
         onCancel={() => setConfirmDelete(null)}
       />
+
+      <Dialog open={paragraphTemplatePicker} onOpenChange={setParagraphTemplatePicker}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Scegli un template Paragraph</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            {PARAGRAPH_PRESETS.map((preset) => (
+              <button
+                key={preset.machineName}
+                className="text-left rounded-lg border p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                onClick={() => createParagraphFromTemplate(preset)}
+              >
+                <div className="font-medium">{preset.label}</div>
+                {preset.description && (
+                  <p className="text-sm text-muted-foreground mt-0.5">{preset.description}</p>
+                )}
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {preset.fields.map((f) => (
+                    <Badge key={f.machineName} variant="secondary" className="text-xs font-mono">
+                      {f.label}
+                    </Badge>
+                  ))}
+                </div>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={dialog.mode !== 'closed'} onOpenChange={(o) => !o && setDialog({ mode: 'closed' })}>
         <DialogContent>
