@@ -33,16 +33,16 @@ export const FIELD_TYPES: FieldTypeInfo[] = [
   { key: 'daterange',  label: 'Intervallo di date',  description: 'Data di inizio e fine (es. evento, periodo).',                                                          category: 'Data' },
 
   // Media
-  { key: 'media_image',    label: 'Immagine',        description: 'Riferimento a entità Media bundle: image.',                          category: 'Media' },
-  { key: 'media_video',    label: 'Video',           description: 'Riferimento a entità Media bundle: video.',                          category: 'Media' },
-  { key: 'media_audio',    label: 'Audio',           description: 'Riferimento a entità Media bundle: audio.',                          category: 'Media' },
-  { key: 'media_document', label: 'Document',        description: 'Riferimento a entità Media bundle: document.',                       category: 'Media' },
-  { key: 'media',          label: 'Media (multi-bundle)', description: 'Riferimento a entità Media con bundle configurabili (image, video, audio, document).', category: 'Media' },
+  { key: 'media_image',    label: 'Immagine',        description: 'Riferimento a entità Media bundle: image',                          category: 'Media' },
+  { key: 'media_video',    label: 'Video',           description: 'Riferimento a entità Media bundle: video',                          category: 'Media' },
+  { key: 'media_audio',    label: 'Audio',           description: 'Riferimento a entità Media bundle: audio',                          category: 'Media' },
+  { key: 'media_document', label: 'Document',        description: 'Riferimento a entità Media bundle: document',                       category: 'Media' },
+  { key: 'media',          label: 'Media (multi-bundle)', description: 'Riferimento a entità Media con bundle configurabili (image, video, audio, document)', category: 'Media' },
 
   // Riferimento
-  { key: 'entity_reference',           label: 'Riferimento entità',     description: 'Collegamento a node, node_type (CT indice) o user. Widget: options_select.',              category: 'Riferimento' },
-  { key: 'entity_reference_revisions', label: 'Riferimento paragrafo',  description: 'Collegamento a paragraph type (revisionabile). Modulo Paragraphs.',                      category: 'Riferimento', drupalModule: 'paragraphs' },
-  { key: 'taxonomy',                   label: 'Tassonomia',             description: 'Riferimento a termine di tassonomia. Specificare il vocabulary machine name.',           category: 'Riferimento' },
+  { key: 'entity_reference',           label: 'Riferimento entità',     description: 'Collegamento a node, node_type (CT indice) o user',              category: 'Riferimento' },
+  { key: 'entity_reference_revisions', label: 'Riferimento paragrafo',  description: 'Collegamento a paragraph type',                      category: 'Riferimento', drupalModule: 'paragraphs' },
+  { key: 'taxonomy',                   label: 'Tassonomia',             description: 'Riferimento a termine di tassonomia. Specificare il vocabulary machine name',           category: 'Riferimento' },
 
 ];
 
