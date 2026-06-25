@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import FieldDialog from './FieldDialog';
 import ConfirmDialog from './ConfirmDialog';
-import { downloadParagraphModule } from '@/lib/paragraph-module-generator';
+import { downloadParagraphModule, downloadContentTypeModule } from '@/lib/paragraph-module-generator';
 
 interface Props {
   project: Project;
@@ -161,6 +161,12 @@ export default function EntityView({ project, entityType, entityId, onChange, on
             )}
           </div>
           <div className="flex gap-2">
+            {entityType === 'contentType' && (
+              <Button variant="outline" size="sm" onClick={() => downloadContentTypeModule(entity as ContentType)}>
+                <Download className="h-4 w-4 mr-1.5" />
+                Download modulo
+              </Button>
+            )}
             {(entityType === 'paragraph' || entityType === 'customField' || entityType === 'loader') && (
               <Button variant="outline" size="sm" onClick={() => downloadParagraphModule(entity as ParagraphType)}>
                 <Download className="h-4 w-4 mr-1.5" />

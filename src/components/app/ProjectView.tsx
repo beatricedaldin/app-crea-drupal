@@ -21,6 +21,7 @@ import {
 import { ChevronLeft, Plus, Trash2, Pencil, Layers, BookOpen, PanelsTopLeft, Database, Download, FileJson, LayoutTemplate, Package, Blocks, FolderInput } from 'lucide-react';
 import { PARAGRAPH_PRESETS, ParagraphPreset } from '@/lib/paragraph-presets';
 import { CUSTOM_FIELD_PRESETS, CustomFieldPreset } from '@/lib/custom-field-presets';
+import { CONTENT_TYPE_PRESETS, ContentTypePreset } from '@/lib/content-type-presets';
 import { downloadTaxonomyModule } from '@/lib/taxonomy-module-generator';
 import { downloadAllCustomFieldsModule, downloadAllParagraphsModule, downloadAllContentTypesModule, downloadAllLoadersModule } from '@/lib/paragraph-module-generator';
 import ConfirmDialog from './ConfirmDialog';
@@ -125,6 +126,7 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
   const [dialog, setDialog] = useState<DialogState>({ mode: 'closed' });
   const [form, setForm] = useState(emptyForm);
   const [confirmDelete, setConfirmDelete] = useState<{ type: EntityType; id: string; label: string } | null>(null);
+  const [contentTypeTemplatePicker, setContentTypeTemplatePicker] = useState(false);
   const [paragraphTemplatePicker, setParagraphTemplatePicker] = useState(false);
   const [customFieldTemplatePicker, setCustomFieldTemplatePicker] = useState(false);
 
@@ -217,6 +219,27 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
       case 'loader': updated.loaderTypes = project.loaderTypes.filter((e) => e.id !== id); break;
     }
     onChange(updated);
+  };
+
+  const createContentTypeFromTemplate = (preset: ContentTypePreset) => {
+    const t = now();
+    onChange({
+      ...project,
+      updatedAt: t,
+      contentTypes: [
+        ...project.contentTypes,
+        {
+          id: uuid(),
+          label: preset.label,
+          machineName: preset.machineName,
+          description: preset.description,
+          fields: preset.fields.map((f) => ({ ...f, id: uuid() })),
+          createdAt: t,
+          updatedAt: t,
+        } as ContentType,
+      ],
+    });
+    setContentTypeTemplatePicker(false);
   };
 
   const createParagraphFromTemplate = (preset: ParagraphPreset) => {
@@ -425,6 +448,7 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
               onOpenEntity={(id) => onOpenEntity('contentType', id)}
               onEdit={(id) => openEdit('contentType', id)}
               onDelete={(id, label) => setConfirmDelete({ type: 'contentType', id, label })}
+              onFromTemplate={() => setContentTypeTemplatePicker(true)}
               onDownloadModule={() => downloadAllContentTypesModule(project.contentTypes)}
             />
           </TabsContent>
@@ -480,6 +504,35 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
         onConfirm={() => { if (confirmDelete) deleteEntity(confirmDelete.type, confirmDelete.id); setConfirmDelete(null); }}
         onCancel={() => setConfirmDelete(null)}
       />
+
+      <Dialog open={contentTypeTemplatePicker} onOpenChange={setContentTypeTemplatePicker}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Scegli un template Content Type</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            {CONTENT_TYPE_PRESETS.map((preset) => (
+              <button
+                key={preset.machineName}
+                className="text-left rounded-lg border p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                onClick={() => createContentTypeFromTemplate(preset)}
+              >
+                <div className="font-medium">{preset.label}</div>
+                {preset.description && (
+                  <p className="text-sm text-muted-foreground mt-0.5">{preset.description}</p>
+                )}
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {preset.fields.map((f) => (
+                    <Badge key={f.machineName} variant="secondary" className="text-xs font-mono">
+                      {f.label}
+                    </Badge>
+                  ))}
+                </div>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={paragraphTemplatePicker} onOpenChange={setParagraphTemplatePicker}>
         <DialogContent className="max-w-lg">

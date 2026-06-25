@@ -95,6 +95,7 @@ export default function FieldDialog({ open, field, fieldPrefix, paragraphTypes, 
       taxonomyVocabulary: form.type === 'taxonomy' ? form.taxonomyVocabulary : undefined,
       dateOnly: form.type === 'datetime' ? (form.dateOnly ?? true) : undefined,
       dateFormat: form.type === 'datetime' ? (form.dateFormat || "m-Y-d\\TH:i:s") : undefined,
+      group: form.group?.trim() || undefined,
     };
     onSave(saved);
   };
@@ -245,16 +246,28 @@ export default function FieldDialog({ open, field, fieldPrefix, paragraphTypes, 
             </div>
           </div>
 
-          {/* Descrizione */}
-          <div className="space-y-1.5">
-            <Label htmlFor="f-desc">Descrizione / Note</Label>
-            <Textarea
-              id="f-desc"
-              value={form.description ?? ''}
-              onChange={(e) => set('description', e.target.value)}
-              rows={2}
-              placeholder="Note per lo sviluppatore..."
-            />
+          {/* Gruppo + Descrizione */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="f-group">Gruppo (opzionale)</Label>
+              <Input
+                id="f-group"
+                value={form.group ?? ''}
+                onChange={(e) => set('group', e.target.value || undefined)}
+                placeholder="es. Media"
+              />
+              <p className="text-xs text-muted-foreground">Raggruppa più campi con lo stesso nome.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="f-desc">Descrizione / Note</Label>
+              <Textarea
+                id="f-desc"
+                value={form.description ?? ''}
+                onChange={(e) => set('description', e.target.value)}
+                rows={2}
+                placeholder="Note per lo sviluppatore..."
+              />
+            </div>
           </div>
 
           {/* Opzioni condizionali — key={form.type} garantisce smontaggio completo al cambio tipo */}

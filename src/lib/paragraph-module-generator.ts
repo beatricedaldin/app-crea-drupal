@@ -313,8 +313,9 @@ function generateModuleCT(ct: ContentType): string {
 
 function generateInstallCT(ct: ContentType): string {
   const mn = ct.machineName.replace(/-/g, '_');
-  const constName = `CT_${mn.toUpperCase()}`;
-  const fnPrefix = `ct_${mn}`;
+  const labelConst = `CT_${mn.toUpperCase()}`;
+  const mnConst    = `CT_MACHINE_NAME_${mn.toUpperCase()}`;
+  const fnPrefix   = `ct_${mn}`;
 
   const usedClasses = new Set<string>(['DinamoConfigurator']);
   ct.fields.forEach((f) => {
@@ -333,27 +334,51 @@ function generateInstallCT(ct: ContentType): string {
     ...[...usedClasses]
       .filter((c) => c !== 'DinamoConfigurator')
       .sort()
-      .map((c) => `use \\${CLASS_NAMESPACE[c]};`),
+      .map((c) => `use Drupal\\dinamo_configurator\\Plugin\\Field\\${c};`),
   ].join('\n');
 
-  const fieldLines = ct.fields.map((f, i) =>
-    fieldToPhp(f, ct.machineName, constName, i + 1, 'node')
-  ).join('\n');
+  // group fields: collect groupFields() calls and field lines together
+  const bodyLines: string[] = [];
+  const emittedGroups = new Set<string>();
+  let weight = 1;
+
+  // pre-collect field names per group
+  const groupMembers: Record<string, string[]> = {};
+  ct.fields.forEach((f) => {
+    if (f.group) {
+      const baseName = stripPrefix(f.machineName, ct.machineName);
+      (groupMembers[f.group] ??= []).push(baseName);
+    }
+  });
+
+  ct.fields.forEach((f) => {
+    const w = weight++;
+    const grp = f.group;
+    if (grp && !emittedGroups.has(grp)) {
+      const members = (groupMembers[grp] ?? []).map((n) => `'${n}'`).join(', ');
+      bodyLines.push(
+        `  DinamoConfigurator::groupFields(ct: ${mnConst}, fields: [${members}], groupName: '${grp}', weight: ${w - 1 > 0 ? w - 1 : w});`
+      );
+      emittedGroups.add(grp);
+    }
+    bodyLines.push(fieldToPhp(f, ct.machineName, mnConst, w, 'node'));
+  });
 
   return [
     `<?php`,
     ``,
     useLines,
     ``,
-    `const ${constName} = '${ct.label}';`,
+    `const ${labelConst} = '${ct.label}';`,
+    `const ${mnConst} = '${ct.machineName}';`,
     ``,
     `/**`,
     ` * Implements hook_install().`,
     ` */`,
     `function ${fnPrefix}_install()`,
     `{`,
-    `  DinamoConfigurator::createContentType(name: ${constName}, label: '${ct.label}',);`,
-    fieldLines,
+    `  DinamoConfigurator::createCT(name: ${labelConst}, disable_menu: true, machine_name: ${mnConst});`,
+    ...bodyLines,
     `}`,
     ``,
     `/**`,
@@ -361,7 +386,7 @@ function generateInstallCT(ct: ContentType): string {
     ` */`,
     `function ${fnPrefix}_uninstall()`,
     `{`,
-    `  DinamoConfigurator::removeContentType(${constName});`,
+    `  DinamoConfigurator::removeCT(${mnConst});`,
     `}`,
     ``,
   ].join('\n');
@@ -503,6 +528,26 @@ export async function downloadAllLoadersModule(loaderTypes: ParagraphType[]): Pr
   const a = document.createElement('a');
   a.href = url;
   a.download = 'loaders.zip';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function downloadContentTypeModule(ct: ContentType): Promise<void> {
+  const mn = ct.machineName.replace(/-/g, '_');
+  const folderName = `ct-${ct.machineName.replace(/_/g, '-')}`;
+  const fileBase = `ct_${mn}`;
+
+  const zip = new JSZip();
+  const folder = zip.folder(folderName)!;
+  folder.file(`${fileBase}.info.yml`, generateInfoYmlCT(ct));
+  folder.file(`${fileBase}.module`,   generateModuleCT(ct));
+  folder.file(`${fileBase}.install`,  generateInstallCT(ct));
+
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${folderName}.zip`;
   a.click();
   URL.revokeObjectURL(url);
 }

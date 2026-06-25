@@ -42,6 +42,7 @@ export interface Field {
   allowedValues?: ListOption[];
   dateOnly?: boolean;
   dateFormat?: string;
+  group?: string;
 }
 
 export interface TaxonomyTerm {
