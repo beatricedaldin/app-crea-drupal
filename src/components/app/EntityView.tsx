@@ -45,6 +45,7 @@ export default function EntityView({ project, entityType, entityId, onChange, on
       case 'contentType': return project.contentTypes;
       case 'taxonomy': return project.taxonomies;
       case 'paragraph': return project.paragraphTypes;
+      case 'customField': return project.customFieldTypes;
     }
   };
 
@@ -66,6 +67,9 @@ export default function EntityView({ project, entityType, entityId, onChange, on
         break;
       case 'paragraph':
         updated.paragraphTypes = project.paragraphTypes.map((e) => e.id === entityId ? { ...e, fields } : e);
+        break;
+      case 'customField':
+        updated.customFieldTypes = project.customFieldTypes.map((e) => e.id === entityId ? { ...e, fields } : e);
         break;
     }
     onChange(updated);
@@ -112,12 +116,14 @@ export default function EntityView({ project, entityType, entityId, onChange, on
     contentType: 'Content Type',
     taxonomy: 'Taxonomy',
     paragraph: 'Paragraph Type',
+    customField: 'Custom Field',
   };
 
   const tabLabel: Record<EntityType, string> = {
     contentType: 'Content Types',
     taxonomy: 'Taxonomies',
     paragraph: 'Paragraph Types',
+    customField: 'Custom Fields',
   };
 
 
@@ -149,7 +155,7 @@ export default function EntityView({ project, entityType, entityId, onChange, on
             )}
           </div>
           <div className="flex gap-2">
-            {entityType === 'paragraph' && (
+            {(entityType === 'paragraph' || entityType === 'customField') && (
               <Button variant="outline" size="sm" onClick={() => downloadParagraphModule(entity as ParagraphType)}>
                 <Download className="h-4 w-4 mr-1.5" />
                 Download modulo
@@ -322,7 +328,7 @@ export default function EntityView({ project, entityType, entityId, onChange, on
       <FieldDialog
         open={dialogOpen}
         field={editingField}
-        fieldPrefix={entityType === 'contentType' || entityType === 'paragraph' ? `${entity.machineName}_` : undefined}
+        fieldPrefix={entityType === 'contentType' || entityType === 'paragraph' || entityType === 'customField' ? `${entity.machineName}_` : undefined}
         paragraphTypes={project.paragraphTypes}
         contentTypes={project.contentTypes}
         vocabularies={project.taxonomies}

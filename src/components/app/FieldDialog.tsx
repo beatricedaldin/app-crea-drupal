@@ -91,7 +91,7 @@ export default function FieldDialog({ open, field, fieldPrefix, paragraphTypes, 
       description: form.description?.trim() || undefined,
       allowedValues: isListType(form.type) ? allowedValues : undefined,
       targetType: isRefType(form.type) ? form.targetType : undefined,
-      targetBundles: isRefType(form.type) ? form.targetBundles : undefined,
+      targetBundles: isRefType(form.type) || isMediaMulti(form.type) ? form.targetBundles : undefined,
       taxonomyVocabulary: form.type === 'taxonomy' ? form.taxonomyVocabulary : undefined,
       dateOnly: form.type === 'datetime' ? (form.dateOnly ?? true) : undefined,
       dateFormat: form.type === 'datetime' ? (form.dateFormat || "m-Y-d\\TH:i:s") : undefined,
@@ -101,6 +101,14 @@ export default function FieldDialog({ open, field, fieldPrefix, paragraphTypes, 
 
   const isListType = (t: FieldTypeKey) => t === 'list' || t === 'radio';
   const isRefType = (t: FieldTypeKey) => t === 'entity_reference' || t === 'entity_reference_revisions';
+  const isMediaMulti = (t: FieldTypeKey) => t === 'media';
+
+  const MEDIA_BUNDLES = [
+    { key: 'image',    label: 'Image' },
+    { key: 'video',    label: 'Video' },
+    { key: 'audio',    label: 'Audio' },
+    { key: 'document', label: 'Document' },
+  ];
 
   const typesByCategory = FIELD_CATEGORIES.reduce<Record<string, typeof FIELD_TYPES>>((acc, cat) => {
     acc[cat] = FIELD_TYPES.filter((f) => f.category === cat);
@@ -379,6 +387,33 @@ export default function FieldDialog({ open, field, fieldPrefix, paragraphTypes, 
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {isMediaMulti(form.type) && (
+            <div className="space-y-1.5">
+              <Label>Bundle Media</Label>
+              <div className="flex flex-col gap-1.5 border rounded-lg p-3">
+                {MEDIA_BUNDLES.map((b) => {
+                  const checked = (form.targetBundles ?? []).includes(b.key);
+                  return (
+                    <label key={b.key} className="flex items-center gap-2 cursor-pointer text-sm">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          const current = form.targetBundles ?? [];
+                          set('targetBundles', e.target.checked
+                            ? [...current, b.key]
+                            : current.filter((x) => x !== b.key));
+                        }}
+                      />
+                      <span className="font-medium">{b.label}</span>
+                      <span className="font-mono text-xs text-muted-foreground">{b.key}</span>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
           )}
 

@@ -16,6 +16,7 @@ export type FieldTypeKey =
   | 'media_video'
   | 'media_audio'
   | 'media_document'
+  | 'media'
   | 'taxonomy'
   | 'entity_reference'
   | 'entity_reference_revisions';
@@ -85,6 +86,7 @@ export interface Project {
   contentTypes: ContentType[];
   taxonomies: Taxonomy[];
   paragraphTypes: ParagraphType[];
+  customFieldTypes: ParagraphType[];
   createdAt: string;
   updatedAt: string;
 }

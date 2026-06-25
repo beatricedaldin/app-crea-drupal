@@ -21,4 +21,15 @@ export const PARAGRAPH_PRESETS: ParagraphPreset[] = [
     ],
     // field machineName values are base names — prefixed with the paragraph machineName at creation time
   },
+  {
+    label: 'Gallery',
+    machineName: 'gallery',
+    description: 'Galleria con testi introduttivi e collezione di image item.',
+    fields: [
+      { label: 'Overtitle', machineName: 'overtitle', type: 'plain_text_long',            required: false, multiple: false },
+      { label: 'Title',     machineName: 'title',     type: 'plain_text_long',            required: false, multiple: false },
+      { label: 'Body',      machineName: 'body',      type: 'formatted_text_with_summary', required: false, multiple: false },
+      { label: 'Items',     machineName: 'items',     type: 'entity_reference_revisions', required: false, multiple: true,  targetBundles: ['image_item'] },
+    ],
+  },
 ];

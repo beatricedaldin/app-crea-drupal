@@ -1,7 +1,6 @@
 import JSZip from 'jszip';
 import { ParagraphType, Field, FieldTypeKey } from './types';
 
-// Classes needed per field type
 const CLASS_FOR_TYPE: Partial<Record<FieldTypeKey, string>> = {
   plain_text:                   'DinamoTextField',
   plain_text_long:              'DinamoTextField',
@@ -14,26 +13,30 @@ const CLASS_FOR_TYPE: Partial<Record<FieldTypeKey, string>> = {
   float:                        'DinamoNumberField',
   boolean:                      'DinamoCheckboxField',
   custom_link:                  'DinamoLinkField',
-  datetime:                     'DinamoDateField',
-  daterange:                    'DinamoDateField',
+  datetime:                     'DinamoDateAndTimeField',
+  daterange:                    'DinamoDateAndTimeField',
   media_image:                  'DinamoMediaField',
   media_video:                  'DinamoMediaField',
   media_audio:                  'DinamoMediaField',
   media_document:               'DinamoMediaField',
+  media:                        'DinamoMediaField',
   taxonomy:                     'DinamoTaxonomyField',
-  entity_reference:             'DinamoEntityReferenceField',
-  entity_reference_revisions:   'DinamoEntityReferenceField',
+  // entity_reference is resolved dynamically in fieldToPhp based on targetType
+  entity_reference_revisions:   'DinamoEntityReferenceRevisioneField',
 };
 
 const CLASS_NAMESPACE: Record<string, string> = {
-  DinamoTextField:           'Drupal\\dinamo_configurator\\Plugin\\Field\\DinamoTextField',
-  DinamoLinkField:           'Drupal\\dinamo_configurator\\Plugin\\Field\\DinamoLinkField',
-  DinamoCheckboxField:       'Drupal\\dinamo_configurator\\Plugin\\Field\\DinamoCheckboxField',
-  DinamoNumberField:         'Drupal\\dinamo_configurator\\Plugin\\Field\\DinamoNumberField',
-  DinamoDateField:           'Drupal\\dinamo_configurator\\Plugin\\Field\\DinamoDateField',
-  DinamoMediaField:          'Drupal\\dinamo_configurator\\Plugin\\Field\\DinamoMediaField',
-  DinamoTaxonomyField:       'Drupal\\dinamo_configurator\\Plugin\\Field\\DinamoTaxonomyField',
-  DinamoEntityReferenceField:'Drupal\\dinamo_configurator\\Plugin\\Field\\DinamoEntityReferenceField',
+  DinamoTextField:                    'Drupal\\dinamo_configurator\\Plugin\\Field\\DinamoTextField',
+  DinamoLinkField:                    'Drupal\\dinamo_configurator\\Plugin\\Field\\DinamoLinkField',
+  DinamoCheckboxField:                'Drupal\\dinamo_configurator\\Plugin\\Field\\DinamoCheckboxField',
+  DinamoNumberField:                  'Drupal\\dinamo_configurator\\Plugin\\Field\\DinamoNumberField',
+  DinamoDateAndTimeField:             'Drupal\\dinamo_configurator\\Plugin\\Field\\DinamoDateAndTimeField',
+  DinamoMediaField:                   'Drupal\\dinamo_configurator\\Plugin\\Field\\DinamoMediaField',
+  DinamoTaxonomyField:                'Drupal\\dinamo_configurator\\Plugin\\Field\\DinamoTaxonomyField',
+  DinamoEntityReferenceRevisioneField:'Drupal\\dinamo_configurator\\Plugin\\Field\\DinamoEntityReferenceRevisioneField',
+  DinamoEntityReferenceField:         'Drupal\\dinamo_configurator\\Plugin\\Field\\DinamoEntityReferenceField',
+  DinamoEntityCTField:                'Drupal\\dinamo_configurator\\Plugin\\Field\\DinamoEntityCTField',
+  DinamoInlineEntityReferenceField:   'Drupal\\dinamo_configurator\\Plugin\\Field\\DinamoInlineEntityReferenceField',
 };
 
 const MEDIA_BUNDLE: Partial<Record<FieldTypeKey, string>> = {
@@ -86,12 +89,27 @@ function fieldToPhp(field: Field, paragraphMachineName: string, constName: strin
     case 'media_document':
       return params([`fieldName: '${baseName}'`, `bundle: '${MEDIA_BUNDLE[field.type]}'`, `label: '${field.label}'`]);
 
+    case 'media': {
+      const bundles = (field.targetBundles ?? []).map((b) => `'${b}'`).join(', ');
+      return params([`fieldName: '${baseName}'`, `bundles: [${bundles}]`, `label: '${field.label}'`]);
+    }
+
     case 'taxonomy':
       return params([`fieldName: '${baseName}'`, `vocabulary: '${field.taxonomyVocabulary ?? ''}'`, `label: '${field.label}'`]);
 
     case 'entity_reference':
+      if (field.targetType === 'node_type') {
+        return `  DinamoEntityCTField::create(ct: ${constName}, fieldName: '${baseName}', label: '${field.label}', weight: ${weight});`;
+      }
+      if (field.targetType === 'node') {
+        const bundle = field.targetBundles?.[0] ?? '';
+        const cardinality = field.multiple ? -1 : 1;
+        return `  DinamoInlineEntityReferenceField::create(ct: ${constName}, fieldName: '${baseName}', label: '${field.label}', weight: ${weight}, targetBundle: '${bundle}', cardinality: ${cardinality});`;
+      }
+      return `  DinamoEntityReferenceField::create(ct: ${constName}, fieldName: '${baseName}', targetType: '${field.targetType ?? ''}', label: '${field.label}', entityType: 'paragraph', weight: ${weight});`;
+
     case 'entity_reference_revisions':
-      return params([`fieldName: '${baseName}'`, `targetType: '${field.targetType ?? ''}'`, `label: '${field.label}'`]);
+      return params([`fieldName: '${baseName}'`, `label: '${field.label}'`]);
 
     default:
       return `  // TODO: ${field.label} (${field.type})`;
@@ -118,11 +136,16 @@ function generateInstall(paragraph: ParagraphType): string {
   const constName = `P_${mn.toUpperCase().replace(/-/g, '_')}`;
   const fnPrefix = `p_${mn.replace(/-/g, '_')}`;
 
-  // Collect which classes are actually needed
   const usedClasses = new Set<string>(['DinamoConfigurator']);
   paragraph.fields.forEach((f) => {
-    const cls = CLASS_FOR_TYPE[f.type];
-    if (cls) usedClasses.add(cls);
+    if (f.type === 'entity_reference') {
+      if (f.targetType === 'node_type') usedClasses.add('DinamoEntityCTField');
+      else if (f.targetType === 'node')  usedClasses.add('DinamoInlineEntityReferenceField');
+      else                               usedClasses.add('DinamoEntityReferenceField');
+    } else {
+      const cls = CLASS_FOR_TYPE[f.type];
+      if (cls) usedClasses.add(cls);
+    }
   });
 
   const useLines = [
@@ -134,7 +157,7 @@ function generateInstall(paragraph: ParagraphType): string {
   ].join('\n');
 
   const fieldLines = paragraph.fields.map((f, i) =>
-    fieldToPhp(f, mn, constName, (i + 1) * 1)
+    fieldToPhp(f, mn, constName, i + 1)
   ).join('\n');
 
   return [

@@ -16,6 +16,7 @@ function migrate(p: Record<string, unknown>): Project {
   (p.taxonomies as Record<string, unknown>[]).forEach((t) => {
     if (!t.terms) t.terms = [];
   });
+  if (!p.customFieldTypes) p.customFieldTypes = [];
   return p as unknown as Project;
 }
 

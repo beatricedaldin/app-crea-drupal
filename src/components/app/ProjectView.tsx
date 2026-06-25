@@ -18,10 +18,91 @@ import { Switch } from '@/components/ui/switch';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { ChevronLeft, Plus, Trash2, Pencil, Layers, BookOpen, PanelsTopLeft, Database, Download, FileJson, LayoutTemplate, Package } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Pencil, Layers, BookOpen, PanelsTopLeft, Database, Download, FileJson, LayoutTemplate, Package, Blocks } from 'lucide-react';
 import { PARAGRAPH_PRESETS, ParagraphPreset } from '@/lib/paragraph-presets';
+import { CUSTOM_FIELD_PRESETS, CustomFieldPreset } from '@/lib/custom-field-presets';
 import { downloadTaxonomyModule } from '@/lib/taxonomy-module-generator';
 import ConfirmDialog from './ConfirmDialog';
+import ThemeToggle from './ThemeToggle';
+
+interface EntityTableProps {
+  type: EntityType;
+  items: Array<{ id: string; label: string; machineName: string; description?: string; fields: unknown[] }>;
+  emptyLabel: string;
+  onAdd: () => void;
+  onOpenEntity: (id: string) => void;
+  onEdit: (id: string) => void;
+  onDelete: (id: string, label: string) => void;
+  onFromTemplate?: () => void;
+  onDownloadModule?: () => void;
+}
+
+function EntityTable({ items, emptyLabel, onAdd, onOpenEntity, onEdit, onDelete, onFromTemplate, onDownloadModule }: EntityTableProps) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-sm text-muted-foreground">{items.length} {items.length === 1 ? 'elemento' : 'elementi'}</span>
+        <div className="flex gap-2">
+          {onDownloadModule && (
+            <Button size="sm" variant="outline" onClick={onDownloadModule}>
+              <Package className="h-4 w-4 mr-1.5" />
+              Download modulo
+            </Button>
+          )}
+          {onFromTemplate && (
+            <Button size="sm" variant="outline" onClick={onFromTemplate}>
+              <LayoutTemplate className="h-4 w-4 mr-1.5" />
+              Template
+            </Button>
+          )}
+          <Button size="sm" onClick={onAdd}>
+            <Plus className="h-4 w-4 mr-1.5" />
+            Aggiungi
+          </Button>
+        </div>
+      </div>
+      {items.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
+          <p className="text-sm">Nessun {emptyLabel} ancora.</p>
+        </div>
+      ) : (
+        <div className="rounded-lg border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Label</TableHead>
+                <TableHead>Machine name</TableHead>
+                <TableHead className="text-center">Campi</TableHead>
+                <TableHead className="w-25" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.map((item) => (
+                <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenEntity(item.id)}>
+                  <TableCell className="font-medium">{item.label}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">{item.machineName}</TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant="secondary">{item.fields.length}</Badge>
+                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(item.id)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => onDelete(item.id, item.label)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface Props {
   project: Project;
@@ -44,6 +125,7 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
   const [form, setForm] = useState(emptyForm);
   const [confirmDelete, setConfirmDelete] = useState<{ type: EntityType; id: string; label: string } | null>(null);
   const [paragraphTemplatePicker, setParagraphTemplatePicker] = useState(false);
+  const [customFieldTemplatePicker, setCustomFieldTemplatePicker] = useState(false);
 
   const now = () => new Date().toISOString();
 
@@ -71,6 +153,7 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
       case 'contentType': return project.contentTypes;
       case 'taxonomy': return project.taxonomies;
       case 'paragraph': return project.paragraphTypes;
+      case 'customField': return project.customFieldTypes;
     }
   };
 
@@ -96,6 +179,9 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
         case 'paragraph':
           updated.paragraphTypes = [...project.paragraphTypes, base as ParagraphType];
           break;
+        case 'customField':
+          updated.customFieldTypes = [...project.customFieldTypes, base as ParagraphType];
+          break;
       }
       onChange(updated);
     } else if (dialog.mode === 'edit') {
@@ -108,6 +194,7 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
         case 'contentType': updated.contentTypes = project.contentTypes.map(updater) as ContentType[]; break;
         case 'taxonomy': updated.taxonomies = project.taxonomies.map((v) => v.id === dialog.id ? { ...v, ...updater(v), hierarchical: form.hierarchical } : v); break;
         case 'paragraph': updated.paragraphTypes = project.paragraphTypes.map(updater) as ParagraphType[]; break;
+        case 'customField': updated.customFieldTypes = project.customFieldTypes.map(updater) as ParagraphType[]; break;
       }
       onChange(updated);
     }
@@ -120,6 +207,7 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
       case 'contentType': updated.contentTypes = project.contentTypes.filter((e) => e.id !== id); break;
       case 'taxonomy': updated.taxonomies = project.taxonomies.filter((e) => e.id !== id); break;
       case 'paragraph': updated.paragraphTypes = project.paragraphTypes.filter((e) => e.id !== id); break;
+      case 'customField': updated.customFieldTypes = project.customFieldTypes.filter((e) => e.id !== id); break;
     }
     onChange(updated);
   };
@@ -143,10 +231,30 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
     setParagraphTemplatePicker(false);
   };
 
+  const createCustomFieldFromTemplate = (preset: CustomFieldPreset) => {
+    const t = now();
+    onChange({
+      ...project,
+      updatedAt: t,
+      customFieldTypes: [
+        ...project.customFieldTypes,
+        {
+          id: uuid(),
+          label: preset.label,
+          machineName: preset.machineName,
+          description: preset.description,
+          fields: preset.fields.map((f) => ({ ...f, id: uuid(), machineName: `${preset.machineName}_${f.machineName}` })),
+        },
+      ],
+    });
+    setCustomFieldTemplatePicker(false);
+  };
+
   const entityTypeLabel: Record<EntityType, string> = {
     contentType: 'Content Type',
     taxonomy: 'Taxonomy',
     paragraph: 'Paragraph Type',
+    customField: 'Custom Field',
   };
 
   // ── Export ────────────────────────────────────────────────────────────────
@@ -235,77 +343,13 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
     // Un foglio per ogni Paragraph Type
     project.paragraphTypes.forEach((pt) => addSheet(wb, pt.label, toFieldRows(pt.fields)));
 
+    // Un foglio per ogni Custom Field
+    project.customFieldTypes.forEach((cf) => addSheet(wb, `[CF] ${cf.label}`, toFieldRows(cf.fields)));
+
     XLSX.writeFile(wb, `${project.name.replace(/\s+/g, '_')}.xlsx`);
   };
 
-  // ── EntityTable ───────────────────────────────────────────────────────────
-
   const dialogEntityType = dialog.mode !== 'closed' ? dialog.entityType : 'contentType';
-
-  const EntityTable = ({ type, items, onFromTemplate, onDownloadModule }: { type: EntityType; items: Array<{ id: string; label: string; machineName: string; description?: string; fields: unknown[] }>; onFromTemplate?: () => void; onDownloadModule?: () => void }) => (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-sm text-muted-foreground">{items.length} {items.length === 1 ? 'elemento' : 'elementi'}</span>
-        <div className="flex gap-2">
-          {onDownloadModule && (
-            <Button size="sm" variant="outline" onClick={onDownloadModule}>
-              <Package className="h-4 w-4 mr-1.5" />
-              Download modulo
-            </Button>
-          )}
-          {onFromTemplate && (
-            <Button size="sm" variant="outline" onClick={onFromTemplate}>
-              <LayoutTemplate className="h-4 w-4 mr-1.5" />
-              Da template
-            </Button>
-          )}
-          <Button size="sm" onClick={() => openCreate(type)}>
-            <Plus className="h-4 w-4 mr-1.5" />
-            Aggiungi
-          </Button>
-        </div>
-      </div>
-      {items.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
-          <p className="text-sm">Nessun {entityTypeLabel[type]} ancora.</p>
-        </div>
-      ) : (
-        <div className="rounded-lg border overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Label</TableHead>
-                <TableHead>Machine name</TableHead>
-                <TableHead className="text-center">Campi</TableHead>
-                <TableHead className="w-25" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((item) => (
-                <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenEntity(type, item.id)}>
-                  <TableCell className="font-medium">{item.label}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{item.machineName}</TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant="secondary">{(item.fields as unknown[]).length}</Badge>
-                  </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(type, item.id)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => setConfirmDelete({ type, id: item.id, label: item.label })}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -329,6 +373,7 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
             <Download className="h-4 w-4 mr-1.5" />
             Excel
           </Button>
+          <ThemeToggle />
         </div>
       </header>
 
@@ -350,16 +395,51 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
               Paragraph Types
               <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{project.paragraphTypes.length}</Badge>
             </TabsTrigger>
+            <TabsTrigger value="customFields" className="flex items-center gap-1.5">
+              <Blocks className="h-4 w-4" />
+              Custom Fields
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{project.customFieldTypes.length}</Badge>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="contentTypes">
-            <EntityTable type="contentType" items={project.contentTypes} />
+            <EntityTable
+              type="contentType" items={project.contentTypes} emptyLabel={entityTypeLabel.contentType}
+              onAdd={() => openCreate('contentType')}
+              onOpenEntity={(id) => onOpenEntity('contentType', id)}
+              onEdit={(id) => openEdit('contentType', id)}
+              onDelete={(id, label) => setConfirmDelete({ type: 'contentType', id, label })}
+            />
           </TabsContent>
           <TabsContent value="taxonomies">
-            <EntityTable type="taxonomy" items={project.taxonomies} onDownloadModule={() => downloadTaxonomyModule(project)} />
+            <EntityTable
+              type="taxonomy" items={project.taxonomies} emptyLabel={entityTypeLabel.taxonomy}
+              onAdd={() => openCreate('taxonomy')}
+              onOpenEntity={(id) => onOpenEntity('taxonomy', id)}
+              onEdit={(id) => openEdit('taxonomy', id)}
+              onDelete={(id, label) => setConfirmDelete({ type: 'taxonomy', id, label })}
+              onDownloadModule={() => downloadTaxonomyModule(project)}
+            />
           </TabsContent>
           <TabsContent value="paragraphs">
-            <EntityTable type="paragraph" items={project.paragraphTypes} onFromTemplate={() => setParagraphTemplatePicker(true)} />
+            <EntityTable
+              type="paragraph" items={project.paragraphTypes} emptyLabel={entityTypeLabel.paragraph}
+              onAdd={() => openCreate('paragraph')}
+              onOpenEntity={(id) => onOpenEntity('paragraph', id)}
+              onEdit={(id) => openEdit('paragraph', id)}
+              onDelete={(id, label) => setConfirmDelete({ type: 'paragraph', id, label })}
+              onFromTemplate={() => setParagraphTemplatePicker(true)}
+            />
+          </TabsContent>
+          <TabsContent value="customFields">
+            <EntityTable
+              type="customField" items={project.customFieldTypes} emptyLabel={entityTypeLabel.customField}
+              onAdd={() => openCreate('customField')}
+              onOpenEntity={(id) => onOpenEntity('customField', id)}
+              onEdit={(id) => openEdit('customField', id)}
+              onDelete={(id, label) => setConfirmDelete({ type: 'customField', id, label })}
+              onFromTemplate={() => setCustomFieldTemplatePicker(true)}
+            />
           </TabsContent>
         </Tabs>
       </main>
@@ -383,6 +463,35 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
                 key={preset.machineName}
                 className="text-left rounded-lg border p-4 hover:bg-muted/50 transition-colors cursor-pointer"
                 onClick={() => createParagraphFromTemplate(preset)}
+              >
+                <div className="font-medium">{preset.label}</div>
+                {preset.description && (
+                  <p className="text-sm text-muted-foreground mt-0.5">{preset.description}</p>
+                )}
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {preset.fields.map((f) => (
+                    <Badge key={f.machineName} variant="secondary" className="text-xs font-mono">
+                      {f.label}
+                    </Badge>
+                  ))}
+                </div>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={customFieldTemplatePicker} onOpenChange={setCustomFieldTemplatePicker}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Scegli un template Custom Field</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            {CUSTOM_FIELD_PRESETS.map((preset) => (
+              <button
+                key={preset.machineName}
+                className="text-left rounded-lg border p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                onClick={() => createCustomFieldFromTemplate(preset)}
               >
                 <div className="font-medium">{preset.label}</div>
                 {preset.description && (

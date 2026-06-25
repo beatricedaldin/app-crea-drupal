@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2, FolderOpen, Database, Upload } from 'lucide-react';
 import { useRef } from 'react';
 import ConfirmDialog from './ConfirmDialog';
+import ThemeToggle from './ThemeToggle';
 
 interface Props {
   projects: Project[];
@@ -74,6 +75,7 @@ export default function ProjectsView({ projects, onChange, onOpen }: Props) {
       contentTypes: [],
       taxonomies: [],
       paragraphTypes: [],
+      customFieldTypes: [],
       createdAt: now,
       updatedAt: now,
     };
@@ -92,7 +94,7 @@ export default function ProjectsView({ projects, onChange, onOpen }: Props) {
             <p className="text-xs text-muted-foreground">Progetta la struttura dei tuoi siti Drupal</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <input
             ref={fileInputRef}
             type="file"
@@ -108,6 +110,7 @@ export default function ProjectsView({ projects, onChange, onOpen }: Props) {
             <Plus className="h-4 w-4 mr-2" />
             Nuovo Progetto
           </Button>
+          <ThemeToggle />
         </div>
       </header>
 

@@ -7,8 +7,8 @@ import ProjectsView from '@/components/app/ProjectsView';
 import ProjectView from '@/components/app/ProjectView';
 import EntityView from '@/components/app/EntityView';
 
-export type EntityType = 'contentType' | 'taxonomy' | 'paragraph';
-export type ProjectTab = 'contentTypes' | 'taxonomies' | 'paragraphs';
+export type EntityType = 'contentType' | 'taxonomy' | 'paragraph' | 'customField';
+export type ProjectTab = 'contentTypes' | 'taxonomies' | 'paragraphs' | 'customFields';
 
 export type Nav =
   | { view: 'projects' }
@@ -20,6 +20,7 @@ export function entityTypeToTab(et: EntityType): ProjectTab {
     contentType: 'contentTypes',
     taxonomy: 'taxonomies',
     paragraph: 'paragraphs',
+    customField: 'customFields',
   };
   return map[et];
 }
