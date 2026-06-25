@@ -150,6 +150,7 @@ export default function ProjectsView({ projects, onChange, onOpen }: Props) {
                     <Badge variant="secondary">{p.contentTypes.length} Content Types</Badge>
                     <Badge variant="secondary">{p.taxonomies.length} Taxonomies</Badge>
                     <Badge variant="secondary">{p.paragraphTypes.length} Paragraphs</Badge>
+                    <Badge variant="secondary">{p.customFieldTypes.length} Custom Fields</Badge>
                   </div>
                 </CardContent>
                 <CardFooter className="flex justify-between pt-3 border-t">
