@@ -87,6 +87,7 @@ export interface Project {
   taxonomies: Taxonomy[];
   paragraphTypes: ParagraphType[];
   customFieldTypes: ParagraphType[];
+  loaderTypes: ParagraphType[];
   createdAt: string;
   updatedAt: string;
 }

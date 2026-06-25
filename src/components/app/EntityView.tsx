@@ -46,6 +46,7 @@ export default function EntityView({ project, entityType, entityId, onChange, on
       case 'taxonomy': return project.taxonomies;
       case 'paragraph': return project.paragraphTypes;
       case 'customField': return project.customFieldTypes;
+      case 'loader': return project.loaderTypes;
     }
   };
 
@@ -70,6 +71,9 @@ export default function EntityView({ project, entityType, entityId, onChange, on
         break;
       case 'customField':
         updated.customFieldTypes = project.customFieldTypes.map((e) => e.id === entityId ? { ...e, fields } : e);
+        break;
+      case 'loader':
+        updated.loaderTypes = project.loaderTypes.map((e) => e.id === entityId ? { ...e, fields } : e);
         break;
     }
     onChange(updated);
@@ -117,6 +121,7 @@ export default function EntityView({ project, entityType, entityId, onChange, on
     taxonomy: 'Taxonomy',
     paragraph: 'Paragraph Type',
     customField: 'Custom Field',
+    loader: 'Loader',
   };
 
   const tabLabel: Record<EntityType, string> = {
@@ -124,6 +129,7 @@ export default function EntityView({ project, entityType, entityId, onChange, on
     taxonomy: 'Taxonomies',
     paragraph: 'Paragraph Types',
     customField: 'Custom Fields',
+    loader: 'Loaders',
   };
 
 
@@ -155,7 +161,7 @@ export default function EntityView({ project, entityType, entityId, onChange, on
             )}
           </div>
           <div className="flex gap-2">
-            {(entityType === 'paragraph' || entityType === 'customField') && (
+            {(entityType === 'paragraph' || entityType === 'customField' || entityType === 'loader') && (
               <Button variant="outline" size="sm" onClick={() => downloadParagraphModule(entity as ParagraphType)}>
                 <Download className="h-4 w-4 mr-1.5" />
                 Download modulo
@@ -328,7 +334,7 @@ export default function EntityView({ project, entityType, entityId, onChange, on
       <FieldDialog
         open={dialogOpen}
         field={editingField}
-        fieldPrefix={entityType === 'contentType' || entityType === 'paragraph' || entityType === 'customField' ? `${entity.machineName}_` : undefined}
+        fieldPrefix={entityType === 'contentType' || entityType === 'paragraph' || entityType === 'customField' || entityType === 'loader' ? `${entity.machineName}_` : undefined}
         paragraphTypes={project.paragraphTypes}
         contentTypes={project.contentTypes}
         vocabularies={project.taxonomies}

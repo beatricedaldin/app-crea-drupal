@@ -17,6 +17,7 @@ function migrate(p: Record<string, unknown>): Project {
     if (!t.terms) t.terms = [];
   });
   if (!p.customFieldTypes) p.customFieldTypes = [];
+  if (!p.loaderTypes) p.loaderTypes = [];
   return p as unknown as Project;
 }
 

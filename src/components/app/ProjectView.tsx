@@ -18,10 +18,11 @@ import { Switch } from '@/components/ui/switch';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { ChevronLeft, Plus, Trash2, Pencil, Layers, BookOpen, PanelsTopLeft, Database, Download, FileJson, LayoutTemplate, Package, Blocks } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Pencil, Layers, BookOpen, PanelsTopLeft, Database, Download, FileJson, LayoutTemplate, Package, Blocks, FolderInput } from 'lucide-react';
 import { PARAGRAPH_PRESETS, ParagraphPreset } from '@/lib/paragraph-presets';
 import { CUSTOM_FIELD_PRESETS, CustomFieldPreset } from '@/lib/custom-field-presets';
 import { downloadTaxonomyModule } from '@/lib/taxonomy-module-generator';
+import { downloadAllCustomFieldsModule, downloadAllParagraphsModule, downloadAllContentTypesModule, downloadAllLoadersModule } from '@/lib/paragraph-module-generator';
 import ConfirmDialog from './ConfirmDialog';
 import ThemeToggle from './ThemeToggle';
 
@@ -154,6 +155,7 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
       case 'taxonomy': return project.taxonomies;
       case 'paragraph': return project.paragraphTypes;
       case 'customField': return project.customFieldTypes;
+      case 'loader': return project.loaderTypes;
     }
   };
 
@@ -182,6 +184,9 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
         case 'customField':
           updated.customFieldTypes = [...project.customFieldTypes, base as ParagraphType];
           break;
+        case 'loader':
+          updated.loaderTypes = [...project.loaderTypes, base as ParagraphType];
+          break;
       }
       onChange(updated);
     } else if (dialog.mode === 'edit') {
@@ -195,6 +200,7 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
         case 'taxonomy': updated.taxonomies = project.taxonomies.map((v) => v.id === dialog.id ? { ...v, ...updater(v), hierarchical: form.hierarchical } : v); break;
         case 'paragraph': updated.paragraphTypes = project.paragraphTypes.map(updater) as ParagraphType[]; break;
         case 'customField': updated.customFieldTypes = project.customFieldTypes.map(updater) as ParagraphType[]; break;
+        case 'loader': updated.loaderTypes = project.loaderTypes.map(updater) as ParagraphType[]; break;
       }
       onChange(updated);
     }
@@ -208,6 +214,7 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
       case 'taxonomy': updated.taxonomies = project.taxonomies.filter((e) => e.id !== id); break;
       case 'paragraph': updated.paragraphTypes = project.paragraphTypes.filter((e) => e.id !== id); break;
       case 'customField': updated.customFieldTypes = project.customFieldTypes.filter((e) => e.id !== id); break;
+      case 'loader': updated.loaderTypes = project.loaderTypes.filter((e) => e.id !== id); break;
     }
     onChange(updated);
   };
@@ -255,6 +262,7 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
     taxonomy: 'Taxonomy',
     paragraph: 'Paragraph Type',
     customField: 'Custom Field',
+    loader: 'Loader',
   };
 
   // ── Export ────────────────────────────────────────────────────────────────
@@ -346,6 +354,9 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
     // Un foglio per ogni Custom Field
     project.customFieldTypes.forEach((cf) => addSheet(wb, `[CF] ${cf.label}`, toFieldRows(cf.fields)));
 
+    // Un foglio per ogni Loader
+    project.loaderTypes.forEach((l) => addSheet(wb, `[L] ${l.label}`, toFieldRows(l.fields)));
+
     XLSX.writeFile(wb, `${project.name.replace(/\s+/g, '_')}.xlsx`);
   };
 
@@ -392,13 +403,18 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
             </TabsTrigger>
             <TabsTrigger value="paragraphs" className="flex items-center gap-1.5">
               <PanelsTopLeft className="h-4 w-4" />
-              Paragraph Types
+              Paragraphs
               <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{project.paragraphTypes.length}</Badge>
             </TabsTrigger>
             <TabsTrigger value="customFields" className="flex items-center gap-1.5">
               <Blocks className="h-4 w-4" />
               Custom Fields
               <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{project.customFieldTypes.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="loaders" className="flex items-center gap-1.5">
+              <FolderInput className="h-4 w-4" />
+              Loaders
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{project.loaderTypes.length}</Badge>
             </TabsTrigger>
           </TabsList>
 
@@ -409,6 +425,7 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
               onOpenEntity={(id) => onOpenEntity('contentType', id)}
               onEdit={(id) => openEdit('contentType', id)}
               onDelete={(id, label) => setConfirmDelete({ type: 'contentType', id, label })}
+              onDownloadModule={() => downloadAllContentTypesModule(project.contentTypes)}
             />
           </TabsContent>
           <TabsContent value="taxonomies">
@@ -429,6 +446,7 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
               onEdit={(id) => openEdit('paragraph', id)}
               onDelete={(id, label) => setConfirmDelete({ type: 'paragraph', id, label })}
               onFromTemplate={() => setParagraphTemplatePicker(true)}
+              onDownloadModule={() => downloadAllParagraphsModule(project.paragraphTypes)}
             />
           </TabsContent>
           <TabsContent value="customFields">
@@ -439,6 +457,17 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
               onEdit={(id) => openEdit('customField', id)}
               onDelete={(id, label) => setConfirmDelete({ type: 'customField', id, label })}
               onFromTemplate={() => setCustomFieldTemplatePicker(true)}
+              onDownloadModule={() => downloadAllCustomFieldsModule(project.customFieldTypes)}
+            />
+          </TabsContent>
+          <TabsContent value="loaders">
+            <EntityTable
+              type="loader" items={project.loaderTypes} emptyLabel={entityTypeLabel.loader}
+              onAdd={() => openCreate('loader')}
+              onOpenEntity={(id) => onOpenEntity('loader', id)}
+              onEdit={(id) => openEdit('loader', id)}
+              onDelete={(id, label) => setConfirmDelete({ type: 'loader', id, label })}
+              onDownloadModule={() => downloadAllLoadersModule(project.loaderTypes)}
             />
           </TabsContent>
         </Tabs>
