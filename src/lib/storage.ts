@@ -2,22 +2,51 @@ import { Project } from './types';
 
 const STORAGE_KEY = 'drupal-architect-projects';
 
+type RawEntity = Record<string, unknown>;
+type RawField = Record<string, unknown>;
+
+function addFieldPrefixes(
+  entities: RawEntity[],
+  skipFieldName?: string,
+): void {
+  entities.forEach((entity) => {
+    const mn = (entity.machineName as string | undefined)?.replace(/-/g, '_');
+    if (!mn) return;
+    const prefix = `${mn}_`;
+    const fields = (entity.fields as RawField[] | undefined) ?? [];
+    fields.forEach((field) => {
+      const name = field.machineName as string | undefined;
+      if (!name) return;
+      if (skipFieldName && name === skipFieldName) return;
+      if (!name.startsWith(prefix)) {
+        field.machineName = `${prefix}${name}`;
+      }
+    });
+  });
+}
+
 function migrate(p: Record<string, unknown>): Project {
-  // vocabularies → taxonomies (aggiunge terms: [] se mancanti)
+  // vocabularies → taxonomies
   if (!p.taxonomies && p.vocabularies) {
-    p.taxonomies = (p.vocabularies as Record<string, unknown>[]).map((v) => ({
+    p.taxonomies = (p.vocabularies as RawEntity[]).map((v) => ({
       ...v,
       terms: (v.terms as unknown[]) ?? [],
     }));
     delete p.vocabularies;
   }
   if (!p.taxonomies) p.taxonomies = [];
-  // assicura terms su ogni taxonomy
-  (p.taxonomies as Record<string, unknown>[]).forEach((t) => {
+  (p.taxonomies as RawEntity[]).forEach((t) => {
     if (!t.terms) t.terms = [];
   });
   if (!p.customFieldTypes) p.customFieldTypes = [];
   if (!p.loaderTypes) p.loaderTypes = [];
+
+  // prefisso machine name sui field
+  addFieldPrefixes(p.contentTypes as RawEntity[] ?? [], 'title');
+  addFieldPrefixes(p.paragraphTypes as RawEntity[] ?? []);
+  addFieldPrefixes(p.customFieldTypes as RawEntity[] ?? []);
+  addFieldPrefixes(p.loaderTypes as RawEntity[] ?? []);
+
   return p as unknown as Project;
 }
 

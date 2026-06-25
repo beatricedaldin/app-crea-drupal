@@ -168,7 +168,6 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
 
     if (dialog.mode === 'create') {
       const defaultContentTypeFields: import('@/lib/types').Field[] = [
-        { id: uuid(), label: 'Title', machineName: 'title', type: 'plain_text_long', required: true, multiple: false },
         { id: uuid(), label: 'Body', machineName: `${machine}_body`, type: 'formatted_text_with_summary', required: false, multiple: false },
       ];
       const base = { id: uuid(), label: form.label.trim(), machineName: machine, description: form.description.trim() || undefined, fields: [] };
@@ -233,7 +232,7 @@ export default function ProjectView({ project, tab, onTabChange, onChange, onBac
           label: preset.label,
           machineName: preset.machineName,
           description: preset.description,
-          fields: preset.fields.map((f) => ({ ...f, id: uuid() })),
+          fields: preset.fields.map((f) => ({ ...f, id: uuid(), machineName: `${preset.machineName}_${f.machineName}` })),
           createdAt: t,
           updatedAt: t,
         } as ContentType,

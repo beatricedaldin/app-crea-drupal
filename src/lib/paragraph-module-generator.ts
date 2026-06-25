@@ -86,8 +86,11 @@ function fieldToPhp(field: Field, ownerMachineName: string, constName: string, w
     case 'media_image':
     case 'media_video':
     case 'media_audio':
-    case 'media_document':
-      return params([`fieldName: '${baseName}'`, `bundle: '${MEDIA_BUNDLE[field.type]}'`, `label: '${field.label}'`]);
+    case 'media_document': {
+      const parts = [`fieldName: '${baseName}'`, `label: '${field.label}'`];
+      if (field.multiple) parts.push(`cardinality: -1`);
+      return params(parts);
+    }
 
     case 'media': {
       const bundles = (field.targetBundles ?? []).map((b) => `'${b}'`).join(', ');
@@ -311,6 +314,19 @@ function generateModuleCT(ct: ContentType): string {
   return `<?php\n\n/**\n * @file\n * Module file for ct_${ct.machineName.replace(/-/g, '_')}.\n */\n`;
 }
 
+function generateComposerJsonCT(ct: ContentType): string {
+  const folderName = `ct-${ct.machineName.replace(/_/g, '-')}`;
+  return JSON.stringify({
+    name: `dinamo/${folderName}`,
+    description: `Content type ${ct.label}`,
+    type: 'drupal-custom-module',
+    version: '1.0.0',
+    license: 'GPL-2.0-or-later',
+    'minimum-stability': 'dev',
+    'prefer-stable': true,
+  }, null, 2) + '\n';
+}
+
 function generateInstallCT(ct: ContentType): string {
   const mn = ct.machineName.replace(/-/g, '_');
   const labelConst = `CT_${mn.toUpperCase()}`;
@@ -404,6 +420,7 @@ export async function downloadAllContentTypesModule(contentTypes: ContentType[])
     folder.file(`${fileBase}.info.yml`, generateInfoYmlCT(ct));
     folder.file(`${fileBase}.module`,   generateModuleCT(ct));
     folder.file(`${fileBase}.install`,  generateInstallCT(ct));
+    folder.file(`composer.json`,        generateComposerJsonCT(ct));
   });
 
   const blob = await zip.generateAsync({ type: 'blob' });
@@ -542,6 +559,7 @@ export async function downloadContentTypeModule(ct: ContentType): Promise<void> 
   folder.file(`${fileBase}.info.yml`, generateInfoYmlCT(ct));
   folder.file(`${fileBase}.module`,   generateModuleCT(ct));
   folder.file(`${fileBase}.install`,  generateInstallCT(ct));
+  folder.file(`composer.json`,        generateComposerJsonCT(ct));
 
   const blob = await zip.generateAsync({ type: 'blob' });
   const url = URL.createObjectURL(blob);

@@ -206,6 +206,20 @@ export default function EntityView({ project, entityType, entityId, onChange, on
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {entityType === 'contentType' && (
+                  <TableRow className="opacity-40 pointer-events-none select-none">
+                    <TableCell className="font-medium">Title</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">title</TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center text-xs px-2 py-0.5 rounded-full border bg-muted text-muted-foreground border-border">
+                        Plain text
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center"><Badge variant="destructive" className="text-xs">Sì</Badge></TableCell>
+                    <TableCell className="text-center"><span className="text-muted-foreground text-xs">No</span></TableCell>
+                    <TableCell />
+                  </TableRow>
+                )}
                 {entity.fields.map((field) => {
                   const typeInfo = getFieldTypeInfo(field.type);
                   return (
