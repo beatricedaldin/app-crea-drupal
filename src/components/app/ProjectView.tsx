@@ -65,7 +65,7 @@ function EntityTable({ items, emptyLabel, onAdd, onOpenEntity, onEdit, onDelete,
       </div>
       {items.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
-          <p className="text-sm">Nessun {emptyLabel} ancora.</p>
+          <p className="text-sm">Nessun {emptyLabel}</p>
         </div>
       ) : (
         <div className="rounded-lg border overflow-hidden">
